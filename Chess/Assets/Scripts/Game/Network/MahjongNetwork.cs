@@ -6,15 +6,14 @@ public enum MahjongNetworkMessageType
 {
     Shuffle = 200,
     TileCodes,
-    Rude
+    RuleObjects
 }
 
 public enum MahjongNetworkRPCHandle
 {
     Draw = 10,
     Throw, 
-    Try, 
-    Win
+    Do,
 }
 
 public class MahjongShuffleMessage : MessageBase
@@ -101,12 +100,15 @@ public class MahjongRuleMessage : MessageBase
 
         int count = ruleObjects == null ? 0 : ruleObjects.Count;
         writer.Write((byte)count);
-        foreach(Mahjong.RuleObject ruleObject in ruleObjects)
+        if (ruleObjects != null)
         {
-            writer.Write((byte)ruleObject.instance.type);
-            writer.Write((byte)ruleObject.instance.index);
-            writer.Write((byte)ruleObject.instance.offset);
-            writer.Write((byte)ruleObject.playerIndex);
+            foreach (Mahjong.RuleObject ruleObject in ruleObjects)
+            {
+                writer.Write((byte)ruleObject.instance.type);
+                writer.Write((byte)ruleObject.instance.index);
+                writer.Write((byte)ruleObject.instance.offset);
+                writer.Write((byte)ruleObject.playerIndex);
+            }
         }
     }
 

@@ -2,14 +2,19 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 
-public class MahjongAsset : MonoBehaviour, IPointerClickHandler, IEndDragHandler
+public class MahjongAsset : MonoBehaviour, IPointerClickHandler, IPointerDownHandler, IPointerUpHandler
 {
-    public event Action onSelected;
-    public event Action onDiscard;
+    public Action onSelected;
+    public Action onDiscard;
 
     public new Renderer renderer;
+    public float sqrDistance;
     public bool isPlayAnimation;
     private bool __isSelected;
+    private float __depth;
+    private Vector3 __position;
+    private Vector3 __offset;
+    private PointerEventData __pointerEventData;
 
     public bool isSelected
     {
@@ -33,6 +38,14 @@ public class MahjongAsset : MonoBehaviour, IPointerClickHandler, IEndDragHandler
             transform.localPosition = position;
 
             __isSelected = value;
+        }
+    }
+
+    public bool isDraging
+    {
+        get
+        {
+            return __pointerEventData != null;
         }
     }
     
@@ -61,16 +74,65 @@ public class MahjongAsset : MonoBehaviour, IPointerClickHandler, IEndDragHandler
         transform.localPosition = position;
 
     }
+    
+    void Update()
+    {
+        if (onDiscard == null)
+            return;
+
+        if (__pointerEventData == null)
+            return;
+
+        Camera camera = __pointerEventData.pressEventCamera;
+        if (camera != null)
+        {
+            Vector3 position = __pointerEventData.position;
+            position.z = __depth;
+            position -= __offset;
+            transform.position = camera.ScreenToWorldPoint(position);
+        }
+    }
 
     void IPointerClickHandler.OnPointerClick(PointerEventData eventData)
     {
+        return;
+        if (__pointerEventData != null)
+            return;
+
         if (onSelected != null)
             onSelected();
     }
-
-    void IEndDragHandler.OnEndDrag(PointerEventData eventData)
+    
+    void IPointerDownHandler.OnPointerDown(PointerEventData eventData)
     {
-        if (onDiscard != null)
+        if (eventData == null || onDiscard == null || __isSelected)
+            return;
+
+        Camera camera = eventData.pressEventCamera;
+        Transform transform = camera == null ? null : camera.transform;
+        if (transform != null)
+        {
+            __depth = Vector3.Distance(transform.position, this.transform.position);
+            __position = eventData.pressPosition;
+            __position.z = __depth;
+            __offset = __position - camera.WorldToScreenPoint(this.transform.position);
+
+            __pointerEventData = eventData;
+        }
+    }
+
+    void IPointerUpHandler.OnPointerUp(PointerEventData eventData)
+    {
+        if (__pointerEventData == null)
+            return;
+
+        if ((__pointerEventData.position - (Vector2)__pointerEventData.pressEventCamera.WorldToScreenPoint(__position)).sqrMagnitude > sqrDistance)
             onDiscard();
+
+        Camera camera = eventData.pressEventCamera;
+        if (camera != null)
+            transform.position = camera.ScreenToWorldPoint(__position - __offset);
+
+        __pointerEventData = null;
     }
 }

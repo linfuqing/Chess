@@ -24,15 +24,11 @@ public class MahjongClientPlayer : Node
     {
         public Tile tile;
         public float velocity;
-        public Action onSelected;
-        public Action onDiscard;
 
-        public Handle(Tile tile, float velocity, Action onSelected, Action onDiscard)
+        public Handle(Tile tile, float velocity)
         {
             this.tile = tile;
             this.velocity = velocity;
-            this.onSelected = onSelected;
-            this.onDiscard = onDiscard;
         }
     }
 
@@ -75,6 +71,21 @@ public class MahjongClientPlayer : Node
 
     private void __Throw(Tile tile, Mahjong.Tile instance)
     {
+        if (assets == null)
+            return;
+
+        if (tile.asset != null)
+        {
+            tile.asset.onSelected = null;
+            tile.asset.onDiscard = null;
+
+            if (assets.textures != null && tile.asset.renderer != null)
+            {
+                byte code = instance;
+                if (code < assets.textures.Length)
+                    tile.asset.renderer.material.mainTexture = assets.textures[code];
+            }
+        }
 
         switch (instance.type)
         {
@@ -201,8 +212,8 @@ public class MahjongClientPlayer : Node
                 Handle handle = node.Value;
                 if (handle.tile.asset != null)
                 {
-                    handle.tile.asset.onSelected -= handle.onSelected;
-                    handle.tile.asset.onDiscard -= handle.onDiscard;
+                    handle.tile.asset.onSelected = null;
+                    handle.tile.asset.onDiscard = null;
                 }
 
                 __Throw(node.Value.tile, instance);
@@ -249,15 +260,16 @@ public class MahjongClientPlayer : Node
             for (LinkedListNode<Handle> node = __handles == null ? null : __handles.First; node != null; node = node.Next)
             {
                 handle = node.Value;
-                transform = handle.tile.asset == null ? null : handle.tile.asset.transform;
+                transform = (handle.tile.asset == null || handle.tile.asset.isDraging) ? null : handle.tile.asset.transform;
                 if (transform != null)
                 {
                     position = transform.localPosition;
                     position.x = Mathf.SmoothDamp(position.x, assets.handPosition.x + assets.width * index, ref handle.velocity, assets.smoothTime, assets.maxSpeed);
                     transform.localPosition = position;
-                }
 
-                node.Value = handle;
+
+                    node.Value = handle;
+                }
 
                 ++index;
             }
@@ -267,7 +279,6 @@ public class MahjongClientPlayer : Node
 
             LinkedListNode<Cache> cacheNode;
             Cache cache;
-            Action onSelected, onDiscard;
             LinkedListNode<Handle> node;
             Handle result, temp;
             while (__caches.Count > 0)
@@ -291,7 +302,7 @@ public class MahjongClientPlayer : Node
                         if (cache.tile.asset != null && isLocalPlayer)
                         {
                             Tile tile = cache.tile;
-                            onSelected = delegate ()
+                            tile.asset.onSelected = delegate ()
                             {
                                 if (__time > 0.0f)
                                     return;
@@ -304,7 +315,7 @@ public class MahjongClientPlayer : Node
                                 __selected = tile.asset;
                             };
 
-                            onDiscard = delegate ()
+                            tile.asset.onDiscard += delegate ()
                             {
                                 if (__time > 0.0f)
                                     return;
@@ -318,18 +329,10 @@ public class MahjongClientPlayer : Node
 
                                 CmdDiscard(tile.index);
                             };
-
-                            tile.asset.onSelected += onSelected;
-                            tile.asset.onDiscard += onDiscard;
-                        }
-                        else
-                        {
-                            onSelected = null;
-                            onDiscard = null;
                         }
 
                         node = null;
-                        result = new Handle(cache.tile, 0.0f, onSelected, onDiscard);
+                        result = new Handle(cache.tile, 0.0f);
                         for (node = __handles.First; node != null; node = node.Next)
                         {
                             temp = node.Value;

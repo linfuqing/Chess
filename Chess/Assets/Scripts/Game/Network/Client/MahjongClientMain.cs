@@ -17,7 +17,7 @@ public class MahjongClientMain : MonoBehaviour
     {
         __client.onConnect -= __OnConnect;
         __client.onRegistered += __OnRegistered;
-        __client.Register(new InitMessage(Random.Range(0, 100).ToString(), "fuck"));
+        __client.Register(new InitMessage(System.Guid.NewGuid().ToString(), "fuck"));
     }
 
     void Awake()

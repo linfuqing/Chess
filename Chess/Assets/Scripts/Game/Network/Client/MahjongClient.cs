@@ -1,9 +1,15 @@
 ﻿using System.Collections.Generic;
 using UnityEngine.Networking;
+using UnityEngine.UI;
 using ZG.Network.Lobby;
 
 public class MahjongClient : Client
 {
+    public Button chow;
+    public Button pong;
+    public Button kong;
+    public Button win;
+
     private Dictionary<byte, byte> __tiles;
 
     public Mahjong.Tile GetTile(byte code)
@@ -24,6 +30,7 @@ public class MahjongClient : Client
 
         RegisterHandler((short)MahjongNetworkMessageType.Shuffle, __OnShuffle);
         RegisterHandler((short)MahjongNetworkMessageType.TileCodes, __OnTileCodes);
+        RegisterHandler((short)MahjongNetworkMessageType.RuleObjects, __OnRuleObjects);
     }
 
     private void __OnShuffle(NetworkMessage message)
@@ -55,5 +62,10 @@ public class MahjongClient : Client
                 }
             }
         }
+    }
+
+    private void __OnRuleObjects(NetworkMessage message)
+    {
+
     }
 }

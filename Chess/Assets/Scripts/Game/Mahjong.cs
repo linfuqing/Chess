@@ -733,15 +733,21 @@ public class Mahjong
             LinkedListNode<int> node;
             if (!__handIndices.TryGetValue(index, out node) || node == null)
                 return false;
+
+
+            if (!__handIndices.RemoveAt(index))
+                return false;
             
+            __handTileIndices.Remove(node);
+                
             if (__poolTileIndices == null)
                 __poolTileIndices = new List<int>();
 
             __poolTileIndices.Add(node.Value);
 
-            __handTileIndices.Remove(node);
+            __Clear();
 
-            return __handIndices.RemoveAt(index);
+            return true;
         }
 
         public ReadOnlyCollection<RuleObject> Start()
@@ -789,7 +795,7 @@ public class Mahjong
                 }
                 else
                 {
-                    int playerIndex = (index + 3) & 3;
+                    int playerIndex = (__mahjong.__playerIndex + 3) & 3;
                     Player player = __mahjong.__players[playerIndex];
                     int count = player == null || player.__poolTileIndices == null ? 0 : player.__poolTileIndices.Count;
                     if (count > 0)

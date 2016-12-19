@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -44,29 +45,74 @@ public class MahjongClientPlayer : Node
         }
     }
 
+    private struct Selector
+    {
+        public Mahjong.RuleNode ruleNode;
+        public Action handler;
+
+        public Selector(Mahjong.RuleNode ruleNode, Action handler)
+        {
+            this.ruleNode = ruleNode;
+            this.handler = handler;
+        }
+    }
+    
     public MahjongAssets assets;
     private int __drawCount;
     private int __discardCount;
     private int __scoreCount;
     private int __groupCount;
     private float __time;
-    private MahjongAsset __selected;
     private LinkedListNode<Cache> __handle;
-    private LinkedList<Handle> __handles;
     private LinkedList<Cache> __caches;
+    private LinkedList<Handle> __handles;
+    private LinkedList<Selector> __selectors;
+    private List<MahjongAsset> __selectedAssets;
 
-    public void Clear()
+    public void Unselect()
     {
-        if (__handles != null)
+        if (__selectors != null)
+            __selectors.Clear();
+
+        if(__selectedAssets != null)
         {
-            foreach(Handle handle in __handles)
+            foreach(MahjongAsset selectedAsset in __selectedAssets)
             {
-                if(handle.tile.asset != null)
-                    Destroy(handle.tile.asset.gameObject);
+                if (selectedAsset != null)
+                    selectedAsset.onSelected = null;
             }
 
-            __handles.Clear();
+            __selectedAssets.Clear();
         }
+    }
+
+    public void Select(Mahjong.RuleNode node, Action handler)
+    {
+        if (__selectors == null)
+            __selectors = new LinkedList<Selector>();
+
+        __selectors.AddLast(new Selector(node, handler));
+    }
+
+    public void Try(byte index)
+    {
+        CmdTry(index);
+    }
+
+    private LinkedListNode<Handle> __Add(Tile tile)
+    {
+        if (__handles == null)
+            __handles = new LinkedList<Handle>();
+
+        Handle result = new Handle(tile, 0.0f), temp;
+        for (LinkedListNode<Handle> node = __handles.First; node != null; node = node.Next)
+        {
+            temp = node.Value;
+            if (temp.tile.code > tile.code)
+                return __handles.AddBefore(node, result);
+        }
+        
+        return __handles.AddLast(result);
     }
 
     private void __Throw(Tile tile, Mahjong.Tile instance)
@@ -104,6 +150,20 @@ public class MahjongClientPlayer : Node
                 assets.Discard(tile.asset, __discardCount++);
                 break;
         }
+    }
+
+    private void __Discard(Tile tile)
+    {
+        if (tile.asset == null)
+            return;
+
+        tile.asset.onDiscard = delegate ()
+        {
+            if (__time > 0.0f)
+                return;
+
+            CmdDiscard(tile.index);
+        };
     }
 
     private void __OnCreate()
@@ -163,7 +223,11 @@ public class MahjongClientPlayer : Node
         if (count < (13 - __groupCount * 3))
             __caches.AddLast(result);
         else
+        {
             __handle = new LinkedListNode<Cache>(result);
+
+            __Discard(result.tile);
+        }
         
         ++__drawCount;
     }
@@ -221,6 +285,10 @@ public class MahjongClientPlayer : Node
             
             if (__handle != null)
             {
+                MahjongAsset asset = __handle.Value.tile.asset;
+                if (asset != null)
+                    asset.onDiscard = null;
+
                 if (__caches == null)
                     __caches = new LinkedList<Cache>();
 
@@ -236,7 +304,15 @@ public class MahjongClientPlayer : Node
 
         Rpc((short)MahjongNetworkRPCHandle.Throw, writer.AsArray(), writer.Position);
     }
-    
+
+    private void CmdTry(byte index)
+    {
+        NetworkWriter writer = new NetworkWriter();
+        writer.Write(index);
+
+        Rpc((short)MahjongNetworkRPCHandle.Try, writer.AsArray(), writer.Position);
+    }
+
     void Awake()
     {
         RegisterHandler((short)MahjongNetworkRPCHandle.Draw, __OnDraw);
@@ -270,7 +346,7 @@ public class MahjongClientPlayer : Node
 
                     node.Value = handle;
                 }
-
+                
                 ++index;
             }
         }
@@ -279,8 +355,6 @@ public class MahjongClientPlayer : Node
 
             LinkedListNode<Cache> cacheNode;
             Cache cache;
-            LinkedListNode<Handle> node;
-            Handle result, temp;
             while (__caches.Count > 0)
             {
                 cacheNode = __caches.First;
@@ -296,56 +370,10 @@ public class MahjongClientPlayer : Node
                     }
                     else if (cache.tile.asset != null)
                     {
-                        if (__handles == null)
-                            __handles = new LinkedList<Handle>();
-
                         if (cache.tile.asset != null && isLocalPlayer)
-                        {
-                            Tile tile = cache.tile;
-                            tile.asset.onSelected = delegate ()
-                            {
-                                if (__time > 0.0f)
-                                    return;
+                            __Discard(cache.tile);
 
-                                if (__selected != null)
-                                    __selected.isSelected = false;
-
-                                tile.asset.isSelected = true;
-
-                                __selected = tile.asset;
-                            };
-
-                            tile.asset.onDiscard += delegate ()
-                            {
-                                if (__time > 0.0f)
-                                    return;
-
-                                if (__selected == tile.asset)
-                                {
-                                    __selected.isSelected = false;
-
-                                    __selected = null;
-                                }
-
-                                CmdDiscard(tile.index);
-                            };
-                        }
-
-                        node = null;
-                        result = new Handle(cache.tile, 0.0f);
-                        for (node = __handles.First; node != null; node = node.Next)
-                        {
-                            temp = node.Value;
-                            if (temp.tile.code > cache.tile.code)
-                            {
-                                __handles.AddBefore(node, result);
-
-                                break;
-                            }
-                        }
-
-                        if (node == null)
-                            __handles.AddLast(result);
+                        __Add(cache.tile);
 
                         if (cache.tile.asset != null)
                             cache.tile.asset.Move();
@@ -355,7 +383,40 @@ public class MahjongClientPlayer : Node
 
                     break;
                 }
+            }
+            
+            if(__caches.Count < 1 && __selectors != null && __selectors.Count > 0)
+            {
+                LinkedListNode<Selector> selectorNode;
+                Selector selector;
+                Handle handle;
+                int index = 0;
+                for (LinkedListNode<Handle> hanldeNode = __handles == null ? null : __handles.First; hanldeNode != null; hanldeNode = hanldeNode.Next)
+                {
+                    handle = hanldeNode.Value;
+                    if (handle.tile.asset != null)
+                    {
+                        for(selectorNode = __selectors.First; selectorNode != null; selectorNode = selectorNode.Next)
+                        {
+                            selector = selectorNode.Value;
+                            if (selector.ruleNode.index == index)
+                            {
+                                handle.tile.asset.onSelected = selector.handler;
 
+                                if (__selectedAssets == null)
+                                    __selectedAssets = new List<MahjongAsset>();
+
+                                __selectedAssets.Add(handle.tile.asset);
+
+                                __selectors.Remove(selectorNode);
+
+                                break;
+                            }
+                        }
+                    }
+                    
+                    ++index;
+                }
             }
         }
     }

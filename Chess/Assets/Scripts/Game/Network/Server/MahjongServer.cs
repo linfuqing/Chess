@@ -84,6 +84,20 @@ public class MahjongServer : Server
                 return false;
             }
 
+            public new bool Try(int index)
+            {
+                Mahjong.RuleType type = Get(index).instance.type;
+                if(base.Try(index))
+                {
+                    if (__instance != null)
+                        __instance.Try(type);
+
+                    return true;
+                }
+
+                return false;
+            }
+
             public void Do(Mahjong.RuleNode node)
             {
                 if (__instance == null)

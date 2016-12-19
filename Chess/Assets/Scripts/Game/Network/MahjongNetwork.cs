@@ -13,6 +13,7 @@ public enum MahjongNetworkRPCHandle
 {
     Draw = 10,
     Throw, 
+    Try, 
     Do,
 }
 

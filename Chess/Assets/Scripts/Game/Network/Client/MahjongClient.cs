@@ -1,6 +1,10 @@
-﻿using System.Collections.Generic;
-using UnityEngine.Networking;
+﻿using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using UnityEngine;
+using UnityEngine.Events;
 using UnityEngine.UI;
+using UnityEngine.Networking;
 using ZG.Network.Lobby;
 
 public class MahjongClient : Client
@@ -66,6 +70,155 @@ public class MahjongClient : Client
 
     private void __OnRuleObjects(NetworkMessage message)
     {
+        MahjongRuleMessage ruleMessage = message == null ? null : message.ReadMessage<MahjongRuleMessage>();
+        if (ruleMessage == null || ruleMessage.ruleObjects == null)
+            return;
 
+        int index = 0;
+        List<int> chowIndices = null, pongIndices = null, kongIndices = null, winIndices = null;
+        foreach(Mahjong.RuleObject ruleObject in ruleMessage.ruleObjects)
+        {
+            switch(ruleObject.instance.type)
+            {
+                case Mahjong.RuleType.Chow:
+                    if (chowIndices == null)
+                        chowIndices = new List<int>();
+
+                    chowIndices.Add(index);
+                    break;
+                case Mahjong.RuleType.Pong:
+                    if (pongIndices == null)
+                        pongIndices = new List<int>();
+
+                    pongIndices.Add(index);
+                    break;
+                case Mahjong.RuleType.Kong:
+                case Mahjong.RuleType.HiddenKong:
+                case Mahjong.RuleType.MeldedKong:
+                    if (kongIndices == null)
+                        kongIndices = new List<int>();
+
+                    kongIndices.Add(index);
+                    break;
+                case Mahjong.RuleType.Win:
+                    if (winIndices == null)
+                        winIndices = new List<int>();
+
+                    winIndices.Add(index);
+                    break;
+            }
+
+            ++index;
+        }
+
+        bool isSetEvent = false;
+        if(chowIndices != null)
+            isSetEvent = __SetEvent(ruleMessage.ruleObjects, chowIndices.AsReadOnly(), chow) || isSetEvent;
+
+        if (pongIndices != null)
+            isSetEvent = __SetEvent(ruleMessage.ruleObjects, pongIndices.AsReadOnly(), pong) || isSetEvent;
+
+        if (kongIndices != null)
+            isSetEvent = __SetEvent(ruleMessage.ruleObjects, kongIndices.AsReadOnly(), kong) || isSetEvent;
+
+        if (winIndices != null)
+            isSetEvent = __SetEvent(ruleMessage.ruleObjects, winIndices.AsReadOnly(), win) || isSetEvent;
+
+        if (isSetEvent)
+            Invoke("__ClearEvents", 5.0f);
+    }
+
+    private bool __SetEvent(ReadOnlyCollection<Mahjong.RuleObject> ruleNodes, ReadOnlyCollection<int> ruleIndices, Button button)
+    {
+        if (button == null)
+            return false;
+
+        int numRules = ruleIndices == null ? 0 : ruleIndices.Count;
+        if (numRules < 1)
+            return false;
+
+        GameObject gameObject = button.gameObject;
+        if (gameObject != null)
+            gameObject.SetActive(true);
+
+        Button.ButtonClickedEvent buttonClickedEvent = new Button.ButtonClickedEvent();
+        button.onClick = buttonClickedEvent;
+
+        UnityAction listener = null;
+        listener = delegate()
+        {
+            MahjongClientPlayer player = localPlayer as MahjongClientPlayer;
+            if (player == null)
+                return;
+
+            if (numRules < 2)
+            {
+                player.Try((byte)ruleIndices[0]);
+
+                __ClearEvents();
+            }
+            else
+            {
+                foreach (int ruleIndex in ruleIndices)
+                {
+                    int temp = ruleIndex;
+                    player.Select(ruleNodes[temp].instance, delegate ()
+                    {
+                        player.Try((byte)ruleIndex);
+
+                        __ClearEvents();
+                    });
+                }
+            }
+        };
+
+        buttonClickedEvent.AddListener(listener);
+
+        return true;
+    }
+
+    private void __ClearEvents()
+    {
+        CancelInvoke("__ClearEvents");
+
+        MahjongClientPlayer player = localPlayer as MahjongClientPlayer;
+        if (player != null)
+            player.Unselect();
+
+        if (chow != null)
+        {
+            chow.onClick = null;
+
+            GameObject gameObject = chow.gameObject;
+            if (gameObject != null)
+                gameObject.SetActive(false);
+        }
+
+        if (pong != null)
+        {
+            pong.onClick = null;
+
+            GameObject gameObject = pong.gameObject;
+            if (gameObject != null)
+                gameObject.SetActive(false);
+        }
+
+        if (kong != null)
+        {
+            kong.onClick = null;
+
+            GameObject gameObject = kong.gameObject;
+            if (gameObject != null)
+                gameObject.SetActive(false);
+        }
+
+        if (win != null)
+        {
+            win.onClick = null;
+
+            GameObject gameObject = win.gameObject;
+            if (gameObject != null)
+                gameObject.SetActive(false);
+        }
     }
 }

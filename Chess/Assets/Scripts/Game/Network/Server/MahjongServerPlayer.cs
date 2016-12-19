@@ -49,6 +49,11 @@ public class MahjongServerPlayer : ServerObject
         RpcThrow(index, instance);
     }
 
+    public void Try(Mahjong.RuleType type)
+    {
+        RpcTry(type);
+    }
+
     public void Do(Mahjong.RuleNode node)
     {
         RpcDo(node);
@@ -69,6 +74,13 @@ public class MahjongServerPlayer : ServerObject
         writer.Write(index);
         writer.Write(instance);
         RpcEnd((short)MahjongNetworkRPCHandle.Throw);
+    }
+
+    private void RpcTry(Mahjong.RuleType type)
+    {
+        NetworkWriter writer = RpcStart();
+        writer.Write((byte)node.type);
+        RpcEnd((short)MahjongNetworkRPCHandle.Try);
     }
 
     private void RpcDo(Mahjong.RuleNode node)

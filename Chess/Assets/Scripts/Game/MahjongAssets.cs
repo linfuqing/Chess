@@ -44,7 +44,7 @@ public class MahjongAssets : ScriptableObject
             return;
 
         transform.localEulerAngles = new Vector3(90.0f, 0.0f, 0.0f);
-        transform.localPosition = discardPosition + new Vector3(width * (index % 5), 0.0f, height * (index / 5));
+        transform.localPosition = discardPosition + new Vector3(width * (index % 5), 0.0f, -height * (index / 5));
 
         asset.Discard();
     }

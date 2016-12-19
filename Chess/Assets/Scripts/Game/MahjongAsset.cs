@@ -23,13 +23,12 @@ public class MahjongAsset : MonoBehaviour, IPointerClickHandler, IPointerDownHan
             return __isSelected;
         }
 
-        set
+        private set
         {
             if (__isSelected == value)
                 return;
 
             Vector3 position = transform.localPosition;
-
             if (value)
                 position.y += 2.5f;
             else
@@ -64,7 +63,7 @@ public class MahjongAsset : MonoBehaviour, IPointerClickHandler, IPointerDownHan
     {
 
     }
-    
+
     private void __OnMove()
     {
         Vector3 position = transform.localPosition;
@@ -80,32 +79,38 @@ public class MahjongAsset : MonoBehaviour, IPointerClickHandler, IPointerDownHan
         if (onDiscard == null)
             return;
 
-        if (__pointerEventData == null)
-            return;
-
-        Camera camera = __pointerEventData.pressEventCamera;
-        if (camera != null)
+        if (__pointerEventData != null)
         {
-            Vector3 position = __pointerEventData.position;
-            position.z = __depth;
-            position -= __offset;
-            transform.position = camera.ScreenToWorldPoint(position);
+            if (onSelected == null)
+            {
+                Camera camera = __pointerEventData.pressEventCamera;
+                if (camera != null)
+                {
+                    Vector3 position = __pointerEventData.position;
+                    position.z = __depth;
+                    position -= __offset;
+                    transform.position = camera.ScreenToWorldPoint(position);
+                }
+            }
+            else
+                ((IPointerUpHandler)this).OnPointerUp(__pointerEventData);
         }
+
+        isSelected = onSelected != null;
     }
 
     void IPointerClickHandler.OnPointerClick(PointerEventData eventData)
     {
-        return;
-        if (__pointerEventData != null)
+        if(onSelected == null || __pointerEventData != null)
             return;
-
+        
         if (onSelected != null)
             onSelected();
     }
     
     void IPointerDownHandler.OnPointerDown(PointerEventData eventData)
     {
-        if (eventData == null || onDiscard == null || __isSelected)
+        if (eventData == null || onDiscard == null || onSelected != null)
             return;
 
         Camera camera = eventData.pressEventCamera;

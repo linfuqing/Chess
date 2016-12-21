@@ -189,7 +189,15 @@ public class MahjongClientPlayer : Node
         if (reader == null)
             return;
         
-        RpcThrow(reader.ReadByte(), reader.ReadByte());
+        RpcThrow(reader.ReadByte(), reader.ReadByte(), reader.ReadByte());
+    }
+
+    private void __OnTry(NetworkReader reader)
+    {
+        if (reader == null)
+            return;
+
+        RpcTry((Mahjong.RuleType)reader.ReadByte());
     }
     
     private void RpcDraw(byte index, byte code)
@@ -232,7 +240,7 @@ public class MahjongClientPlayer : Node
         ++__drawCount;
     }
 
-    private void RpcThrow(byte index, Mahjong.Tile instance)
+    private void RpcThrow(byte index, byte group, Mahjong.Tile instance)
     {
         if (__handle != null && __handle.Value.tile.index == index)
         {
@@ -281,6 +289,8 @@ public class MahjongClientPlayer : Node
                 }
 
                 __Throw(node.Value.tile, instance);
+
+                __time = assets.throwTime;
             }
             
             if (__handle != null)
@@ -295,6 +305,11 @@ public class MahjongClientPlayer : Node
                 __caches.AddLast(__handle);
             }
         }
+    }
+
+    private void RpcTry(Mahjong.RuleType type)
+    {
+
     }
     
     private void CmdDiscard(byte index)
@@ -317,6 +332,7 @@ public class MahjongClientPlayer : Node
     {
         RegisterHandler((short)MahjongNetworkRPCHandle.Draw, __OnDraw);
         RegisterHandler((short)MahjongNetworkRPCHandle.Throw, __OnThrow);
+        RegisterHandler((short)MahjongNetworkRPCHandle.Try, __OnTry);
 
         onCreate += __OnCreate;
     }

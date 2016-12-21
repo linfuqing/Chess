@@ -59,7 +59,7 @@ public class MahjongAsset : MonoBehaviour, IPointerClickHandler, IPointerDownHan
         Invoke("__OnMove", 3.0f);
     }
 
-    public void Discard()
+    public void Throw()
     {
 
     }

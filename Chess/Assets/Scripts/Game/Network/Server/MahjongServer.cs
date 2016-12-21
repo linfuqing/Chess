@@ -97,15 +97,7 @@ public class MahjongServer : Server
 
                 return false;
             }
-
-            public void Do(Mahjong.RuleNode node)
-            {
-                if (__instance == null)
-                    return;
-
-                __instance.Do(node);
-            }
-
+            
             public IEnumerator WaitToThrow(float timeout)
             {
                 if (__instance == null)

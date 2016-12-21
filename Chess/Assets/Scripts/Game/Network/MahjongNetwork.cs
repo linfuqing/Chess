@@ -6,7 +6,7 @@ public enum MahjongNetworkMessageType
 {
     Shuffle = 200,
     TileCodes,
-    RuleObjects
+    RuleNodes
 }
 
 public enum MahjongNetworkRPCHandle
@@ -82,16 +82,16 @@ public class MahjongTileCodeMessage : MessageBase
 
 public class MahjongRuleMessage : MessageBase
 {
-    public ReadOnlyCollection<Mahjong.RuleObject> ruleObjects;
+    public ReadOnlyCollection<Mahjong.RuleNode> ruleNodes;
 
     public MahjongRuleMessage()
     {
 
     }
 
-    public MahjongRuleMessage(ReadOnlyCollection<Mahjong.RuleObject> ruleObjects)
+    public MahjongRuleMessage(ReadOnlyCollection<Mahjong.RuleNode> ruleNodes)
     {
-        this.ruleObjects = ruleObjects;
+        this.ruleNodes = ruleNodes;
     }
 
     public override void Serialize(NetworkWriter writer)
@@ -99,16 +99,15 @@ public class MahjongRuleMessage : MessageBase
         if (writer == null)
             return;
 
-        int count = ruleObjects == null ? 0 : ruleObjects.Count;
+        int count = ruleNodes == null ? 0 : ruleNodes.Count;
         writer.Write((byte)count);
-        if (ruleObjects != null)
+        if (ruleNodes != null)
         {
-            foreach (Mahjong.RuleObject ruleObject in ruleObjects)
+            foreach (Mahjong.RuleNode ruleNode in ruleNodes)
             {
-                writer.Write((byte)ruleObject.instance.type);
-                writer.Write((byte)ruleObject.instance.index);
-                writer.Write((byte)ruleObject.instance.offset);
-                writer.Write((byte)ruleObject.playerIndex);
+                writer.Write((byte)ruleNode.type);
+                writer.Write((byte)ruleNode.index);
+                writer.Write((byte)ruleNode.offset);
             }
         }
     }
@@ -118,17 +117,17 @@ public class MahjongRuleMessage : MessageBase
         if (reader == null)
             return;
 
-        List<Mahjong.RuleObject> ruleObjects = null;
+        List<Mahjong.RuleNode> ruleNodes = null;
         int count = reader.ReadByte();
         for(int i = 0; i < count; ++i)
         {
-            if (ruleObjects == null)
-                ruleObjects = new List<Mahjong.RuleObject>();
+            if (ruleNodes == null)
+                ruleNodes = new List<Mahjong.RuleNode>();
 
-            ruleObjects.Add(new Mahjong.RuleObject(new Mahjong.RuleNode((Mahjong.RuleType)reader.ReadByte(), reader.ReadByte(), reader.ReadByte()), reader.ReadByte()));
+            ruleNodes.Add(new Mahjong.RuleNode((Mahjong.RuleType)reader.ReadByte(), reader.ReadByte(), reader.ReadByte()));
         }
 
-        this.ruleObjects = ruleObjects == null ? null : ruleObjects.AsReadOnly();
+        this.ruleNodes = ruleNodes == null ? null : ruleNodes.AsReadOnly();
     }
 }
 

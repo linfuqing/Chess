@@ -34,7 +34,7 @@ public class MahjongClient : Client
 
         RegisterHandler((short)MahjongNetworkMessageType.Shuffle, __OnShuffle);
         RegisterHandler((short)MahjongNetworkMessageType.TileCodes, __OnTileCodes);
-        RegisterHandler((short)MahjongNetworkMessageType.RuleObjects, __OnRuleObjects);
+        RegisterHandler((short)MahjongNetworkMessageType.RuleNodes, __OnRuleNodes);
     }
 
     private void __OnShuffle(NetworkMessage message)
@@ -68,17 +68,17 @@ public class MahjongClient : Client
         }
     }
 
-    private void __OnRuleObjects(NetworkMessage message)
+    private void __OnRuleNodes(NetworkMessage message)
     {
         MahjongRuleMessage ruleMessage = message == null ? null : message.ReadMessage<MahjongRuleMessage>();
-        if (ruleMessage == null || ruleMessage.ruleObjects == null)
+        if (ruleMessage == null || ruleMessage.ruleNodes == null)
             return;
 
         int index = 0;
         List<int> chowIndices = null, pongIndices = null, kongIndices = null, winIndices = null;
-        foreach(Mahjong.RuleObject ruleObject in ruleMessage.ruleObjects)
+        foreach(Mahjong.RuleNode ruleNode in ruleMessage.ruleNodes)
         {
-            switch(ruleObject.instance.type)
+            switch(ruleNode.type)
             {
                 case Mahjong.RuleType.Chow:
                     if (chowIndices == null)
@@ -113,22 +113,22 @@ public class MahjongClient : Client
 
         bool isSetEvent = false;
         if(chowIndices != null)
-            isSetEvent = __SetEvent(ruleMessage.ruleObjects, chowIndices.AsReadOnly(), chow) || isSetEvent;
+            isSetEvent = __SetEvent(ruleMessage.ruleNodes, chowIndices.AsReadOnly(), chow) || isSetEvent;
 
         if (pongIndices != null)
-            isSetEvent = __SetEvent(ruleMessage.ruleObjects, pongIndices.AsReadOnly(), pong) || isSetEvent;
+            isSetEvent = __SetEvent(ruleMessage.ruleNodes, pongIndices.AsReadOnly(), pong) || isSetEvent;
 
         if (kongIndices != null)
-            isSetEvent = __SetEvent(ruleMessage.ruleObjects, kongIndices.AsReadOnly(), kong) || isSetEvent;
+            isSetEvent = __SetEvent(ruleMessage.ruleNodes, kongIndices.AsReadOnly(), kong) || isSetEvent;
 
         if (winIndices != null)
-            isSetEvent = __SetEvent(ruleMessage.ruleObjects, winIndices.AsReadOnly(), win) || isSetEvent;
+            isSetEvent = __SetEvent(ruleMessage.ruleNodes, winIndices.AsReadOnly(), win) || isSetEvent;
 
         if (isSetEvent)
             Invoke("__ClearEvents", 5.0f);
     }
 
-    private bool __SetEvent(ReadOnlyCollection<Mahjong.RuleObject> ruleNodes, ReadOnlyCollection<int> ruleIndices, Button button)
+    private bool __SetEvent(ReadOnlyCollection<Mahjong.RuleNode> ruleNodes, ReadOnlyCollection<int> ruleIndices, Button button)
     {
         if (button == null)
             return false;
@@ -162,7 +162,7 @@ public class MahjongClient : Client
                 foreach (int ruleIndex in ruleIndices)
                 {
                     int temp = ruleIndex;
-                    player.Select(ruleNodes[temp].instance, delegate ()
+                    player.Select(ruleNodes[temp], delegate ()
                     {
                         player.Try((byte)ruleIndex);
 

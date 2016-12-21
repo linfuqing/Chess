@@ -145,8 +145,8 @@ public class Mahjong
                 return;
             
             Tile tile = Tile.Get(index), source = new Tile(), destination;
-            int count = 0, offset = 0, result = -1;
-            bool isType = false, isEyes = false;
+            int eyeCount = 0, count = 0, offset = 0, current = 0, currentStep = 0, nextStep = 1, result = -1;
+            bool isType = false;
             foreach (int temp in indices)
             {
                 destination = Tile.Get(temp);
@@ -158,151 +158,120 @@ public class Mahjong
                         continue;
                 }
 
-                switch (count)
-                {
-                    case 0:
-                        isType = true;
-
-                        isEyes = true;
-
-                        result = -1;
-                        break;
-                    case 1:
-                        if (destination.number - source.number == 1)
-                            isEyes = false;
-                        else if (destination.number != source.number)
-                        {
-                            isEyes = true;
-
-                            result = -1;
-
-                            count = 0;
-                        }
-                        break;
-                    case 2:
-                        if (destination.number - source.number == 1)
-                        {
-                            if (isEyes)
-                                isEyes = false;
-                            else
-                            {
-                                if (result >= 0)
-                                    set(new RuleNode(RuleType.Chow, offset - 2, result));
-                            }
-
-                            count = 1;
-                        }
-                        else if (destination.number == source.number)
-                        {
-                            if (isEyes)
-                            {
-                                if (result >= 0)
-                                    set(new RuleNode(RuleType.Pong, offset - 2, result));
-                            }
-                            else
-                                count = 1;
-                        }
-                        else
-                        {
-                            isEyes = true;
-
-                            result = -1;
-
-                            count = 0;
-                        }
-
-                        break;
-                    case 3:
-                        if (destination.number == source.number)
-                        {
-                            if (isEyes)
-                            {
-                                if (result >= 0)
-                                {
-                                    set(new RuleNode(RuleType.Pong, offset - 2, result));
-                                    set(new RuleNode(RuleType.Kong, offset - 3, result));
-                                }
-
-                                count = 2;
-                            }
-                            else
-                                count = 1;
-                        }
-                        else
-                        {
-                            isEyes = true;
-
-                            result = -1;
-
-                            count = 0;
-                        }
-
-                        break;
-                    default:
-                        isEyes = true;
-
-                        result = -1;
-
-                        count = 0;
-                        break;
-                }
-
                 if (destination.number == tile.number)
                 {
-                    if (isEyes)
+                    ++eyeCount;
+                    switch(eyeCount)
                     {
-                        ++count;
+                        case 2:
+                            set(new RuleNode(RuleType.Pong, offset - 1, 2));
+                            break;
+                        case 3:
+                            set(new RuleNode(RuleType.Kong, offset - 2, 3));
+                            break;
+                    }
 
-                        switch (count)
+                    source = destination;
+                }
+                else
+                {
+                    if (result == -1)
+                    {
+                        if (destination.number - tile.number == 1)
                         {
-                            case 2:
-                                set(new RuleNode(RuleType.Pong, offset - 2, 2));
-                                break;
-                            case 3:
-                                set(new RuleNode(RuleType.Pong, offset - 2, 2));
-                                set(new RuleNode(RuleType.Kong, offset - 3, 3));
+                            result = 0;
 
-                                count = 2;
-                                break;
+                            count = 2;
+
+                            current = offset;
+
+                            currentStep = 0;
+
+                            source = destination;
+                        }
+                        else
+                        {
+                            if (isType)
+                            {
+                                if (destination.number - source.number == 1)
+                                    ++count;
+                                else if (destination.number == source.number)
+                                {
+                                    switch (count)
+                                    {
+                                        case 0:
+                                            ++currentStep;
+                                            break;
+                                        case 1:
+                                            ++nextStep;
+                                            break;
+                                    }
+                                }
+                                else
+                                {
+                                    count = 0;
+
+                                    current = offset;
+
+                                    currentStep = 0;
+
+                                    nextStep = 1;
+                                }
+                            }
+
+                            if (tile.number - destination.number == 1)
+                            {
+                                result = ++count;
+
+                                ++count;
+
+                                if (count > 2)
+                                {
+                                    current += currentStep;
+                                    result -= count - 3;
+                                    count = 3;
+                                    set(new RuleNode(RuleType.Chow, current, result));
+
+                                    if (result <= 0)
+                                        return;
+
+                                    currentStep = nextStep;
+                                    nextStep = 1;
+                                }
+
+                                source = tile;
+                            }
+                            else
+                                source = destination;
                         }
                     }
-                    else
-                        count = 1;
-
-                    result = count;
-                }
-                else if (Math.Abs(destination.number - tile.number) == 1)
-                {
-                    if (isEyes)
+                    else if (destination.number - source.number == 1)
                     {
-                        count = 1;
-
-                        isEyes = false;
-                    }
-                    else if (count == 1)
-                        set(new RuleNode(RuleType.Chow, offset - 2, 2));
-                    else
                         ++count;
+                        if (count > 2)
+                        {
+                            current += currentStep;
+                            result -= count - 3;
+                            count = 3;
+                            set(new RuleNode(RuleType.Chow, current, result));
 
-                    if (destination.number < tile.number)
-                    {
-                        destination = tile;
+                            if (result <= 0)
+                                return;
+                            
+                            currentStep = nextStep;
+                        }
 
-                        result = count;
+                        source = destination;
                     }
+                    else if (source.number - destination.number == 1 || source.number == destination.number)
+                        ++currentStep;
                     else
-                    {
-                        count = 0;
-
-                        result = 0;
-                    }
+                        return;
                 }
+                
+                isType = true;
 
                 ++offset;
-
-                ++count;
-
-                source = destination;
             }
         }
 
@@ -313,10 +282,12 @@ public class Mahjong
             
             IEnumerable<int> result = this.winFlag;
             Tile source = new Tile(), destination;
-            int count = 0;
+            int count = 0, length = 0;
             bool isEyes = false;
             foreach (int index in indices)
             {
+                ++length;
+
                 switch (count)
                 {
                     case 0:
@@ -405,7 +376,7 @@ public class Mahjong
                 ++count;
             }
 
-            return true;
+            return length > 13;
         }
     }
 
@@ -733,8 +704,7 @@ public class Mahjong
             LinkedListNode<int> node;
             if (!__handIndices.TryGetValue(index, out node) || node == null)
                 return false;
-
-
+            
             if (!__handIndices.RemoveAt(index))
                 return false;
             

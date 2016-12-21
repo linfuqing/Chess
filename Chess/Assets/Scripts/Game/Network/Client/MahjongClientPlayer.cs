@@ -296,7 +296,7 @@ public class MahjongClientPlayer : Node
             }
         }
     }
-
+    
     private void CmdDiscard(byte index)
     {
         NetworkWriter writer = new NetworkWriter();

@@ -53,6 +53,11 @@ public class MahjongServerPlayer : ServerObject
     {
         RpcTry(type);
     }
+
+    public void Do(Mahjong.RuleType type, byte group)
+    {
+        RpcDo(type, group);
+    }
     
     private void RpcDraw(byte index, byte code)
     {
@@ -77,5 +82,13 @@ public class MahjongServerPlayer : ServerObject
         NetworkWriter writer = RpcStart();
         writer.Write((byte)node.type);
         RpcEnd((short)MahjongNetworkRPCHandle.Try);
+    }
+
+    private void RpcDo(Mahjong.RuleType type, byte group)
+    {
+        NetworkWriter writer = RpcStart();
+        writer.Write((byte)type);
+        writer.Write(group);
+        RpcEnd((short)MahjongNetworkRPCHandle.Do);
     }
 }

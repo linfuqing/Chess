@@ -4,6 +4,7 @@ public class MahjongAssets : ScriptableObject
 {
     public float width;
     public float height;
+    public float length;
     public float offset;
     public float throwTime;
     public float moveTime;
@@ -16,7 +17,6 @@ public class MahjongAssets : ScriptableObject
     public MahjongAsset asset;
     public Texture[] textures;
     private MahjongAsset __asset;
-    private float __groupOffset;
 
     public MahjongAsset Create()
     {
@@ -66,33 +66,13 @@ public class MahjongAssets : ScriptableObject
         asset.Throw();
     }
 
-    public void Group(MahjongAsset x, MahjongAsset y, MahjongAsset z)
+    public void Group(MahjongAsset asset, int groupIndex, int index)
     {
-        __groupOffset += offset;
-
-        Transform transform = __asset == null ? null : __asset.transform;
-        if (transform != null)
-            transform.localPosition = groupPosition + new Vector3(-(__groupOffset += width), 0.0f, 0.0f);
-
-        transform = x == null ? null : x.transform;
-        if (transform != null)
-        {
-            transform.localEulerAngles = new Vector3(90.0f, 0.0f, 0.0f);
-            transform.localPosition = groupPosition + new Vector3(-(__groupOffset += width), 0.0f, 0.0f);
-        }
-
-        transform = y == null ? null : y.transform;
-        if (transform != null)
-        {
-            transform.localEulerAngles = new Vector3(90.0f, 0.0f, 0.0f);
-            transform.localPosition = groupPosition + new Vector3(-(__groupOffset += width), 0.0f, 0.0f);
-        }
-
-        transform = z == null ? null : z.transform;
-        if (transform != null)
-        {
-            transform.localEulerAngles = new Vector3(90.0f, 0.0f, 0.0f);
-            transform.localPosition = groupPosition + new Vector3(-(__groupOffset += width), 0.0f, 0.0f);
-        }
+        Transform transform = asset == null ? null : asset.transform;
+        if (transform == null)
+            return;
+        
+        transform.localEulerAngles = new Vector3(90.0f, index > 2 ? 90.0f : 0.0f, 0.0f);
+        transform.localPosition = groupPosition - new Vector3((groupIndex * 3 + (index > 2 ? 1 : index)) * width + groupIndex * offset, index > 2 ? length : 0.0f, 0.0f);
     }
 }

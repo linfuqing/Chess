@@ -982,12 +982,11 @@ public class Mahjong
                     }
 
                     i = __handIndices.IndexOf(node);
-                    if(__handIndices.RemoveAt(i))
-                    {
-                        if (handler != null)
-                            handler(i);
-                    }
-                    else
+
+                    if (handler != null)
+                        handler(i);
+
+                    if (!__handIndices.RemoveAt(i))
                     {
                         type = RuleType.Unknown;
 
@@ -995,12 +994,11 @@ public class Mahjong
                     }
 
                     i = __handIndices.IndexOf(node1);
-                    if(__handIndices.RemoveAt(i))
-                    {
-                        if (handler != null)
-                            handler(i);
-                    }
-                    else
+
+                    if (handler != null)
+                        handler(i);
+
+                    if (!__handIndices.RemoveAt(i))
                     {
                         type = RuleType.Unknown;
 
@@ -1008,12 +1006,11 @@ public class Mahjong
                     }
 
                     i = __handIndices.IndexOf(node2);
-                    if (__handIndices.RemoveAt(i))
-                    {
-                        if (handler != null)
-                            handler(i);
-                    }
-                    else
+
+                    if (handler != null)
+                        handler(i);
+
+                    if (!__handIndices.RemoveAt(i))
                     {
                         type = RuleType.Unknown;
 
@@ -1077,12 +1074,11 @@ public class Mahjong
                 }
 
                 i = __handIndices.IndexOf(node);
-                if (__handIndices.RemoveAt(i))
-                {
-                    if (handler != null)
-                        handler(i);
-                }
-                else
+
+                if (handler != null)
+                    handler(i);
+
+                if (!__handIndices.RemoveAt(i))
                 {
                     type = RuleType.Unknown;
 
@@ -1090,12 +1086,11 @@ public class Mahjong
                 }
 
                 i = __handIndices.IndexOf(node1);
-                if (__handIndices.RemoveAt(i))
-                {
-                    if (handler != null)
-                        handler(i);
-                }
-                else
+
+                if (handler != null)
+                    handler(i);
+
+                if (!__handIndices.RemoveAt(i))
                 {
                     type = RuleType.Unknown;
 
@@ -1103,12 +1098,11 @@ public class Mahjong
                 }
 
                 i = __handIndices.IndexOf(node2);
-                if (__handIndices.RemoveAt(i))
-                {
-                    if (handler != null)
-                        handler(i);
-                }
-                else
+
+                if (handler != null)
+                    handler(i);
+
+                if (!__handIndices.RemoveAt(i))
                 {
                     type = RuleType.Unknown;
 
@@ -1169,12 +1163,11 @@ public class Mahjong
             }
             
             i = __handIndices.IndexOf(node);
-            if (__handIndices.RemoveAt(i))
-            {
-                if (handler != null)
-                    handler(i);
-            }
-            else
+
+            if (handler != null)
+                handler(i);
+
+            if (!__handIndices.RemoveAt(i))
             {
                 type = RuleType.Unknown;
 
@@ -1182,12 +1175,11 @@ public class Mahjong
             }
 
             i = __handIndices.IndexOf(node1);
-            if (__handIndices.RemoveAt(i))
-            {
-                if (handler != null)
-                    handler(i);
-            }
-            else
+
+            if (handler != null)
+                handler(i);
+
+            if (!__handIndices.RemoveAt(i))
             {
                 type = RuleType.Unknown;
 

@@ -13,7 +13,8 @@ public enum MahjongNetworkRPCHandle
 {
     Draw = 10,
     Throw, 
-    Try
+    Try, 
+    Do
 }
 
 public class MahjongShuffleMessage : MessageBase

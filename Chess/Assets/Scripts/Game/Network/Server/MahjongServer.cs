@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using UnityEngine;
@@ -18,6 +19,8 @@ public class MahjongServer : Server
     {
         public class Player : Mahjong.Player
         {
+            private static List<KeyValuePair<int, Mahjong.Tile>> __tiles;
+             
             private byte[] __tileCodes;
             private MahjongServerPlayer __instance;
 
@@ -49,7 +52,7 @@ public class MahjongServer : Server
 
                 int index = 0;
                 for (int i = 0; i < count; ++i)
-                    __tileCodes[i] = (byte)Random.Range(index, index += step);
+                    __tileCodes[i] = (byte)UnityEngine.Random.Range(index, index += step);
 
                 __Reset();
             }
@@ -64,6 +67,32 @@ public class MahjongServer : Server
                         host.SendRuleMessage(node.connectionId, ruleNodes);
                 }
             }
+            
+            public Mahjong.RuleType End(int index)
+            {
+                Action<int> handler = delegate (int temp)
+                {
+                    if (__tiles == null)
+                        __tiles = new List<KeyValuePair<int, Mahjong.Tile>>();
+
+                    __tiles.Add(new KeyValuePair<int, Mahjong.Tile>(temp, GetHandTile(temp)));
+                };
+
+                if (__tiles != null)
+                    __tiles.Clear();
+
+                Mahjong.RuleType type;
+                byte group = (byte)base.End(index, handler, out type);
+                if (__instance != null)
+                {
+                    foreach (KeyValuePair<int, Mahjong.Tile> pair in __tiles)
+                        __instance.Throw((byte)pair.Key, group, pair.Value);
+
+                    __instance.Do(type, group);
+                }
+
+                return type;
+            }
 
             public bool Draw()
             {
@@ -76,7 +105,7 @@ public class MahjongServer : Server
                 if(base.Discard(index))
                 {
                     if (instance != null)
-                        instance.Throw((byte)index, tile);
+                        instance.Throw((byte)index, 255, tile);
 
                     return true;
                 }
@@ -97,7 +126,7 @@ public class MahjongServer : Server
 
                 return false;
             }
-            
+
             public IEnumerator WaitToThrow(float timeout)
             {
                 if (__instance == null)
@@ -111,7 +140,7 @@ public class MahjongServer : Server
                 if (__instance == null)
                     return null;
 
-                return __instance.Wait((byte)handleTileIndex, (short)MahjongNetworkRPCHandle.Do, timeout, __OnTry);
+                return __instance.Wait((byte)handleTileIndex, (short)MahjongNetworkRPCHandle.Try, timeout, __OnTry);
             }
             
             private void __Reset()
@@ -143,7 +172,7 @@ public class MahjongServer : Server
             private void __Remove(int index)
             {
                 if (instance != null)
-                    instance.Throw((byte)index, GetHandTile(index));
+                    instance.Throw((byte)index, 255, GetHandTile(index));
             }
             
             private void __OnThrow(byte index)
@@ -250,7 +279,6 @@ public class MahjongServer : Server
                                     ruleNodeIndex = __mahjong.ruleNodeIndex;
                                     ruleNode = player.Get(ruleNodeIndex);
                                     ruleType = ruleNode.type = player.End(ruleNodeIndex);
-                                    player.Do(ruleNode);
                                 }
                             }
 
@@ -268,8 +296,7 @@ public class MahjongServer : Server
                                 ruleNodeIndex = __mahjong.ruleNodeIndex;
                                 ruleNode = player.Get(ruleNodeIndex);
                                 ruleType = ruleNode.type = player.End(ruleNodeIndex);
-                                player.Do(ruleNode);
-                                
+
                                 if (ruleType == Mahjong.RuleType.Win)
                                     yield break;
                             }

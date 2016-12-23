@@ -270,7 +270,7 @@ public class Mahjong
             
             IEnumerable<int> result = this.winFlag;
             Tile source = new Tile(), destination;
-            int count = 0, length = 0;
+            int length = 0, count = 0, eyeCount = 0, i;
             bool isEyes = false;
             foreach (int index in indices)
             {
@@ -365,6 +365,69 @@ public class Mahjong
             }
 
             return length > 13;
+        }
+
+        public bool __Win(LinkedListNode<int> node, IEnumerable<int> winFlags)
+        {
+            if (node == null)
+                return false;
+
+            int count = 0;
+            Tile source = Tile.Get(node.Value), destination;
+            IEnumerable<int> result;
+            LinkedListNode<int> temp;
+            node = node.Next;
+            while (node != null)
+            {
+                destination = Tile.Get(node.Value);
+
+                if (destination.type == source.type)
+                {
+                    if (destination.number == source.number)
+                    {
+                        if (count > 2)
+                        {
+                            if (count < 4)
+                            {
+                                result =
+                                    from winFlag in winFlags
+                                    where ((winFlag >> 3) & 0x7) > 0
+                                    select winFlag - (1 << 3);
+
+                                if (result.Any())
+                                {
+                                    temp = node.Next;
+                                    if (temp == null)
+                                        return true;
+
+                                    if (__Win(temp, result))
+                                        return true;
+                                }
+                            }
+                            else
+                                return false;
+                        }
+
+                        ++count;
+                    }
+                    else if (destination.number - source.number == 1)
+                    {
+                        
+                    }
+                    else
+                    {
+
+                    }
+                }
+                else
+                {
+
+                }
+
+                source = destination;
+
+                node = node.Next;
+            }
         }
     }
 
@@ -824,10 +887,7 @@ public class Mahjong
         {
             if (__mahjong == null)
                 return false;
-
-            if (((__mahjong.__rulePlayerIndex + 1) & 3) != __index)
-                return false;
-
+            
             RuleType ruleType = Get(index).type;
             switch (ruleType)
             {
@@ -973,7 +1033,7 @@ public class Mahjong
                         return -1;
                     }
 
-                    node2 = node.Next;
+                    node2 = node1.Next;
                     if (node2 == null)
                     {
                         type = RuleType.Unknown;
@@ -1065,7 +1125,7 @@ public class Mahjong
                     return -1;
                 }
 
-                node2 = node.Next;
+                node2 = node1.Next;
                 if (node2 == null)
                 {
                     type = RuleType.Unknown;
@@ -1439,19 +1499,138 @@ public class Mahjong
 
     public void Shuffle(out int point0, out int point1, out int point2, out int point3)
     {
+
+        __tileIndices = new int[]
+        {
+            //round 0
+            //0
+            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 1) << 2,
+
+            //1
+            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 0) << 2,
+
+            //2
+            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 0) << 2,
+
+            //3
+            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 0) << 2,
+
+            //round 1
+            //0
+            new Tile(TileType.Dots, 2) << 2,
+            new Tile(TileType.Dots, 3) << 2,
+            new Tile(TileType.Dots, 4) << 2,
+            new Tile(TileType.Dots, 5) << 2,
+
+            //1
+            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 0) << 2,
+
+            //2
+            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 0) << 2,
+
+            //3
+            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 0) << 2,
+
+            //round 2
+            //0
+            new Tile(TileType.Dots, 6) << 2,
+            new Tile(TileType.Dots, 7) << 2,
+            new Tile(TileType.Dots, 8) << 2,
+            new Tile(TileType.Bomboo, 0) << 2,
+
+            //1
+            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 0) << 2,
+
+            //2
+            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 0) << 2,
+
+            //3
+            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 0) << 2,
+
+            //0
+            new Tile(TileType.Bomboo, 1) << 2,
+            //1
+            new Tile(TileType.Dots, 0) << 2,
+            //2
+            new Tile(TileType.Dots, 0) << 2,
+            //3
+            new Tile(TileType.Dots, 0) << 2,
+
+            //0
+            new Tile(TileType.Bomboo, 2) << 2,
+            //1
+            new Tile(TileType.Dots, 0) << 2,
+            //2
+            new Tile(TileType.Dots, 0) << 2,
+            //3
+            new Tile(TileType.Dots, 0) << 2,
+
+            //0
+            new Tile(TileType.Bomboo, 3) << 2,
+            //1
+            new Tile(TileType.Dots, 0) << 2,
+            //2
+            new Tile(TileType.Dots, 0) << 2,
+            //3
+            new Tile(TileType.Dots, 0) << 2,
+        };
+
+        point0 = 0;
+        point1 = 0;
+        point2 = 0;
+        point3 = 0;
+
+        __tileIndex = 0;
+        __tileCount = 0;
+
+        __dealerIndex = 0;// random.Next(0, 3);
+        __playerIndex = __dealerIndex;
+
+        return;
+
         int poolTileCount = 144, handTileCount = 18;
 
         Random random = new Random();
+        
         if (__tileIndices == null)
         {
             __tileIndices = new int[poolTileCount];
             for (int i = 0; i < poolTileCount; ++i)
                 __tileIndices[i] = i;
         }
-
-        --poolTileCount;
-        int index, temp;
-        for (int i = 0; i < poolTileCount; ++i)
+        
+        int count = poolTileCount - 1, index, temp;
+        for (int i = 0; i < count; ++i)
         {
             index = random.Next(i, poolTileCount);
             if(index != i)
@@ -1461,18 +1640,18 @@ public class Mahjong
                 __tileIndices[i] = temp;
             }
         }
-        
+
         point0 = random.Next(0, 5);
         point1 = random.Next(0, 5);
         point2 = random.Next(0, 5);
         point3 = random.Next(0, 5);
 
-        int count = point0 + point1;
+        count = point0 + point1;
         
         __tileIndex = ((count + 1) & 3) * handTileCount + count + point2 + point3;
         __tileCount = 0;
-        
-        __dealerIndex = random.Next(0, 3);
+
+        __dealerIndex = 0;// random.Next(0, 3);
         __playerIndex = __dealerIndex;
     }
 }

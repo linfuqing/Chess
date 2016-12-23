@@ -16,7 +16,6 @@ public class MahjongAssets : ScriptableObject
     public Vector3 groupPosition;
     public MahjongAsset asset;
     public Texture[] textures;
-    private MahjongAsset __asset;
 
     public MahjongAsset Create()
     {
@@ -50,8 +49,6 @@ public class MahjongAssets : ScriptableObject
         transform.localPosition = discardPosition + new Vector3(width * (index % 5), 0.0f, -height * (index / 5));
 
         asset.Throw();
-
-        __asset = asset;
     }
 
     public void Score(MahjongAsset asset, int index)

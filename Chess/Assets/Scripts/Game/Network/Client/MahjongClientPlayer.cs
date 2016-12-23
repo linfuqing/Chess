@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -32,15 +31,17 @@ public class MahjongClientPlayer : Node
             this.velocity = velocity;
         }
     }
-
+    
     private struct Cache
     {
         public Tile tile;
+        public byte group;
         public Mahjong.Tile? instance;
 
-        public Cache(Tile tile, Mahjong.Tile? instance)
+        public Cache(Tile tile, byte group, Mahjong.Tile? instance)
         {
             this.tile = tile;
+            this.group = group;
             this.instance = instance;
         }
     }
@@ -56,6 +57,18 @@ public class MahjongClientPlayer : Node
             this.handler = handler;
         }
     }
+
+    private struct Group
+    {
+        public int index;
+        public int count;
+
+        public Group(int index, int count)
+        {
+            this.index = index;
+            this.count = count;
+        }
+    }
     
     public MahjongAssets assets;
     private int __drawCount;
@@ -68,7 +81,7 @@ public class MahjongClientPlayer : Node
     private LinkedList<Handle> __handles;
     private LinkedList<Selector> __selectors;
     private List<MahjongAsset> __selectedAssets;
-    private Dictionary<int, int> __groups;
+    private Dictionary<byte, Group> __groups;
 
     public void Unselect()
     {
@@ -116,7 +129,7 @@ public class MahjongClientPlayer : Node
         return __handles.AddLast(result);
     }
 
-    private void __Throw(Tile tile, Mahjong.Tile instance)
+    private void __Throw(Tile tile, byte group, Mahjong.Tile instance)
     {
         if (assets == null)
             return;
@@ -134,22 +147,43 @@ public class MahjongClientPlayer : Node
             }
         }
 
-        switch (instance.type)
+        if (group == 255)
         {
-            case Mahjong.TileType.Spring:
-            case Mahjong.TileType.Summer:
-            case Mahjong.TileType.Autumn:
-            case Mahjong.TileType.Winter:
+            switch (instance.type)
+            {
+                case Mahjong.TileType.Spring:
+                case Mahjong.TileType.Summer:
+                case Mahjong.TileType.Autumn:
+                case Mahjong.TileType.Winter:
 
-            case Mahjong.TileType.Plum:
-            case Mahjong.TileType.Orchid:
-            case Mahjong.TileType.Chrysanthemum:
-            case Mahjong.TileType.Bamboo:
-                assets.Score(tile.asset, __scoreCount++);
-                break;
-            default:
-                assets.Discard(tile.asset, __discardCount++);
-                break;
+                case Mahjong.TileType.Plum:
+                case Mahjong.TileType.Orchid:
+                case Mahjong.TileType.Chrysanthemum:
+                case Mahjong.TileType.Bamboo:
+                    assets.Score(tile.asset, __scoreCount++);
+                    break;
+                default:
+                    assets.Discard(tile.asset, __discardCount++);
+
+                    MahjongClient host = base.host as MahjongClient;
+                    if (host != null)
+                        host.asset = tile.asset;
+                    break;
+            }
+        }
+        else
+        {
+            if (__groups == null)
+                __groups = new Dictionary<byte, Group>();
+
+            Group temp;
+            if (!__groups.TryGetValue(group, out temp))
+                temp = new Group(__groups.Count, 0);
+            
+            assets.Group(tile.asset, temp.index, temp.count);
+
+            ++temp.count;
+            __groups[group] = temp;
         }
     }
 
@@ -200,7 +234,15 @@ public class MahjongClientPlayer : Node
 
         RpcTry((Mahjong.RuleType)reader.ReadByte());
     }
-    
+
+    private void __OnDo(NetworkReader reader)
+    {
+        if (reader == null)
+            return;
+
+        RpcDo((Mahjong.RuleType)reader.ReadByte(), reader.ReadByte());
+    }
+
     private void RpcDraw(byte index, byte code)
     {
         if (assets == null)
@@ -225,11 +267,11 @@ public class MahjongClientPlayer : Node
         transform.SetParent(this.transform, false);
         transform.localPosition = assets.handPosition + new Vector3(count * assets.width + assets.offset, 0.0f, 0.0f);
 
-        Cache result = new Cache(new Tile(index, code, asset), null);
+        Cache result = new Cache(new Tile(index, code, asset), 255, null);
         if (__caches == null)
             __caches = new LinkedList<Cache>();
 
-        if (count < (13 - __groupCount * 3))
+        if (count < (13 - __groupCount))
             __caches.AddLast(result);
         else
         {
@@ -248,7 +290,7 @@ public class MahjongClientPlayer : Node
             if (__caches == null)
                 __caches = new LinkedList<Cache>();
 
-            __handle.Value = new Cache(__handle.Value.tile, instance);
+            __handle.Value = new Cache(__handle.Value.tile, group, instance);
             __caches.AddLast(__handle);
 
             __handle = null;
@@ -260,7 +302,7 @@ public class MahjongClientPlayer : Node
             {
                 if (cacheNode.Value.tile.index == index)
                 {
-                    cacheNode.Value = new Cache(cacheNode.Value.tile, instance);
+                    cacheNode.Value = new Cache(cacheNode.Value.tile, group, instance);
 
                     break;
                 }
@@ -289,9 +331,9 @@ public class MahjongClientPlayer : Node
                     handle.tile.asset.onDiscard = null;
                 }
 
-                __Throw(node.Value.tile, instance);
+                __Throw(node.Value.tile, group, instance);
 
-                __time = assets.throwTime;
+                __time = Mathf.Max(__time, assets.throwTime);
             }
             
             if (__handle != null)
@@ -311,6 +353,40 @@ public class MahjongClientPlayer : Node
     private void RpcTry(Mahjong.RuleType type)
     {
 
+    }
+
+    private void RpcDo(Mahjong.RuleType type, byte group)
+    {
+        if (assets == null || __groups == null)
+            return;
+
+        Group temp;
+        if (!__groups.TryGetValue(group, out temp))
+            return;
+
+        MahjongClient host = base.host as MahjongClient;
+        if (host == null || host.asset == null)
+            return;
+
+        assets.Group(host.asset, temp.index, temp.count);
+
+        host.asset = null;
+        ++temp.count;
+
+        __groups[group] = temp;
+
+        switch(type)
+        {
+            case Mahjong.RuleType.Chow:
+            case Mahjong.RuleType.Kong:
+                __groupCount += 3;
+                break;
+            case Mahjong.RuleType.Pong:
+            case Mahjong.RuleType.HiddenKong:
+            case Mahjong.RuleType.MeldedKong:
+                __groupCount += 4;
+                break;
+        }
     }
     
     private void CmdDiscard(byte index)
@@ -334,6 +410,7 @@ public class MahjongClientPlayer : Node
         RegisterHandler((short)MahjongNetworkRPCHandle.Draw, __OnDraw);
         RegisterHandler((short)MahjongNetworkRPCHandle.Throw, __OnThrow);
         RegisterHandler((short)MahjongNetworkRPCHandle.Try, __OnTry);
+        RegisterHandler((short)MahjongNetworkRPCHandle.Do, __OnDo);
 
         onCreate += __OnCreate;
     }
@@ -381,7 +458,7 @@ public class MahjongClientPlayer : Node
                     cache = cacheNode.Value;
                     if (cache.instance != null)
                     {
-                        __Throw(cache.tile, (Mahjong.Tile)cache.instance);
+                        __Throw(cache.tile, cache.group, (Mahjong.Tile)cache.instance);
 
                         __time = assets.throwTime;
                     }

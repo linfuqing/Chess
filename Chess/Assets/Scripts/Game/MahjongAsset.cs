@@ -77,9 +77,11 @@ public class MahjongAsset : MonoBehaviour, IPointerClickHandler, IPointerDownHan
     void Update()
     {
         if (onDiscard == null)
-            return;
-
-        if (__pointerEventData != null)
+        {
+            if(__pointerEventData != null)
+                ((IPointerUpHandler)this).OnPointerUp(__pointerEventData);
+        }
+        else if (__pointerEventData != null)
         {
             if (onSelected == null)
             {

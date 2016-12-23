@@ -13,6 +13,7 @@ public class MahjongClient : Client
     public Button pong;
     public Button kong;
     public Button win;
+    public MahjongAsset asset;
 
     private Dictionary<byte, byte> __tiles;
 

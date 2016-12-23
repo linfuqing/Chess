@@ -244,13 +244,34 @@ public class MahjongServer : Server
                 player = __mahjong.Get(index) as Player;
                 if(player != null)
                 {
-                    while (!player.Draw() || player.isDraw)
+                    while (true)
                     {
-                        ruleNodes = player.Start();
-                        if (ruleNodes == null || ruleNodes.Count < 1)
+                        if (player.isDraw)
                         {
-                            yield return player.WaitToThrow(6.0f);
+                            ruleNodes = player.Start();
+                            if (ruleNodes != null && ruleNodes.Count > 0)
+                            {
+                                player.SendRuleMessage(ruleNodes);
+
+                                yield return player.WaitToTry(5.0f);
+
+                                ruleType = __mahjong.ruleType;
+                                if (ruleType != Mahjong.RuleType.Unknown && index == __mahjong.rulePlayerIndex)
+                                {
+                                    ruleNodeIndex = __mahjong.ruleNodeIndex;
+                                    ruleNode = player.Get(ruleNodeIndex);
+                                    ruleType = ruleNode.type = player.End(ruleNodeIndex);
+
+                                    if (ruleType == Mahjong.RuleType.Win)
+                                        yield break;
+
+                                    if (ruleType != Mahjong.RuleType.Unknown)
+                                        continue;
+                                }
+                            }
                             
+                            yield return player.WaitToThrow(6.0f);
+
                             for (i = 1; i < 4; ++i)
                             {
                                 player = __mahjong.Get((i + index) & 3) as Player;
@@ -284,23 +305,8 @@ public class MahjongServer : Server
 
                             break;
                         }
-                        else
-                        {
-                            player.SendRuleMessage(ruleNodes);
-
-                            yield return player.WaitToTry(5.0f);
-
-                            ruleType = __mahjong.ruleType;
-                            if (ruleType != Mahjong.RuleType.Unknown && index == __mahjong.rulePlayerIndex)
-                            {
-                                ruleNodeIndex = __mahjong.ruleNodeIndex;
-                                ruleNode = player.Get(ruleNodeIndex);
-                                ruleType = ruleNode.type = player.End(ruleNodeIndex);
-
-                                if (ruleType == Mahjong.RuleType.Win)
-                                    yield break;
-                            }
-                        }
+                        else if (!player.Draw())
+                            break;
                     }
                 }
                 

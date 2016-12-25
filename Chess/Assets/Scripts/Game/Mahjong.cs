@@ -129,6 +129,112 @@ public class Mahjong
 
         public void Check(IEnumerable<int> indices, int index, Action<RuleNode> set)
         {
+            if (set == null)
+                return;
+
+            IEnumerator<int> enumerator = indices == null ? null : indices.GetEnumerator();
+            if (enumerator == null || !enumerator.MoveNext())
+                return;
+
+            int current = 0;
+            Tile tile = Tile.Get(index), source = Tile.Get(enumerator.Current);
+            while (tile.type != source.type && enumerator.MoveNext())
+            {
+                source = Tile.Get(enumerator.Current);
+
+                ++current;
+            }
+
+            if(tile.type != source.type)
+                return;
+
+            Tile destination;
+            int offset = current + 1, eyeCount = 0, count = 0, currentStep = 1, nextStep = 1;
+            while(true)
+            {
+                if (source.number == tile.number)
+                {
+                    ++eyeCount;
+                    switch (eyeCount)
+                    {
+                        case 2:
+                            set(new RuleNode(RuleType.Pong, offset - 2, 2));
+                            break;
+                        case 3:
+                            set(new RuleNode(RuleType.Kong, offset - 3, 3));
+                            break;
+                    }
+                }
+
+                if (!enumerator.MoveNext())
+                    break;
+
+                destination = Tile.Get(enumerator.Current);
+                if (destination.type != tile.type)
+                    break;
+
+                if (destination.number == source.number)
+                {
+                    switch (count)
+                    {
+                        case 0:
+                            ++currentStep;
+                            break;
+                        case 1:
+                            ++nextStep;
+                            break;
+                    }
+                }
+                else
+                {
+                    if (count > 0 && tile.number - source.number == 1)
+                        set(new RuleNode(RuleType.Chow, current, 2));
+
+                    if (destination.number - source.number == 1)
+                    {
+                        if (source.number - tile.number == 1)
+                            set(new RuleNode(RuleType.Chow, current + (count > 0 ? currentStep : 0), 0));
+
+                        ++count;
+
+                        if (count > 1)
+                        {
+                            if (tile.number == source.number)
+                                set(new RuleNode(RuleType.Chow, current, 1));
+
+                            count = 1;
+                            current += currentStep;
+                            currentStep = nextStep;
+                            nextStep = 1;
+                        }
+                    }
+                    else
+                    {
+                        if (tile.number - source.number == 1 && destination.number - tile.number == 1)
+                            set(new RuleNode(RuleType.Chow, current + (count > 0 ? currentStep : 0), 1));
+
+                        count = 0;
+
+                        current = offset;
+
+                        currentStep = 1;
+
+                        nextStep = 1;
+                    }
+                }
+                
+                source = destination;
+
+                ++offset;
+            }
+
+            if (count > 0 && tile.number - source.number == 1)
+                set(new RuleNode(RuleType.Chow, current, 2));
+        }
+
+
+        /*public void Check(IEnumerable<int> indices, int index, Action<RuleNode> set)
+        {
             if (indices == null || set == null)
                 return;
             
@@ -182,7 +288,17 @@ public class Mahjong
                             if (isType)
                             {
                                 if (destination.number - source.number == 1)
+                                {
                                     ++count;
+
+                                    if(count > 1)
+                                    {
+                                        count = 1;
+                                        current += currentStep;
+                                        currentStep = nextStep;
+                                        nextStep = 1;
+                                    }
+                                }
                                 else if (destination.number == source.number)
                                 {
                                     switch (count)
@@ -201,7 +317,7 @@ public class Mahjong
 
                                     current = offset;
 
-                                    currentStep = 0;
+                                    currentStep = 1;
 
                                     nextStep = 1;
                                 }
@@ -215,14 +331,14 @@ public class Mahjong
 
                                 if (count > 2)
                                 {
-                                    current += currentStep;
                                     result -= count - 3;
                                     count = 3;
                                     set(new RuleNode(RuleType.Chow, current, result));
 
                                     if (result <= 0)
                                         return;
-
+                                    
+                                    current += currentStep;
                                     currentStep = nextStep;
                                     nextStep = 1;
                                 }
@@ -238,15 +354,16 @@ public class Mahjong
                         ++count;
                         if (count > 2)
                         {
-                            current += currentStep;
                             result -= count - 3;
                             count = 3;
                             set(new RuleNode(RuleType.Chow, current, result));
 
                             if (result <= 0)
                                 return;
-                            
+
+                            current += currentStep;
                             currentStep = nextStep;
+                            nextStep = 1;
                         }
 
                         source = destination;
@@ -261,9 +378,9 @@ public class Mahjong
 
                 ++offset;
             }
-        }
+        }*/
 
-        public bool Win(IEnumerable<int> indices)
+        /*public bool Win(IEnumerable<int> indices)
         {
             if (indices == null)
                 return false;
@@ -365,69 +482,155 @@ public class Mahjong
             }
 
             return length > 13;
-        }
+        }*/
 
-        public bool __Win(LinkedListNode<int> node, IEnumerable<int> winFlags)
+        public bool Win(IEnumerable<int> indices)
         {
-            if (node == null)
+            IEnumerator<int> enumerator = indices == null ? null : indices.GetEnumerator();
+            if (enumerator == null || !enumerator.MoveNext())
                 return false;
 
-            int count = 0;
-            Tile source = Tile.Get(node.Value), destination;
-            IEnumerable<int> result;
-            LinkedListNode<int> temp;
-            node = node.Next;
-            while (node != null)
+            IEnumerable<int> result = this.winFlag;
+            Tile source = Tile.Get(enumerator.Current), destination;
+            int count = 1, previousCount = 0, currentCount = 0, nextCount = 1, temp;
+            while(enumerator.MoveNext())
             {
-                destination = Tile.Get(node.Value);
+                ++count;
 
-                if (destination.type == source.type)
+                destination = Tile.Get(enumerator.Current);
+                if (destination.type != source.type || destination.number - source.number > 1)
                 {
-                    if (destination.number == source.number)
-                    {
-                        if (count > 2)
-                        {
-                            if (count < 4)
-                            {
-                                result =
-                                    from winFlag in winFlags
-                                    where ((winFlag >> 3) & 0x7) > 0
-                                    select winFlag - (1 << 3);
+                    temp = Math.Min(Math.Min(previousCount, currentCount), nextCount);
+                    if (!__Check(temp, ref result))
+                        return false;
 
-                                if (result.Any())
-                                {
-                                    temp = node.Next;
-                                    if (temp == null)
-                                        return true;
+                    previousCount -= temp;
+                    if (previousCount > 0 && !__CheckEye(previousCount, ref result))
+                        return false;
 
-                                    if (__Win(temp, result))
-                                        return true;
-                                }
-                            }
-                            else
-                                return false;
-                        }
+                    currentCount -= temp;
+                    if (currentCount > 0 && !__CheckEye(currentCount, ref result))
+                        return false;
 
-                        ++count;
-                    }
-                    else if (destination.number - source.number == 1)
-                    {
-                        
-                    }
-                    else
-                    {
+                    nextCount -= temp;
+                    if (nextCount > 0 && !__CheckEye(nextCount, ref result))
+                        return false;
 
-                    }
+                    previousCount = 0;
+                    currentCount = 0;
+                    nextCount = 1;
+                }
+                else if (destination.number == source.number)
+                    ++nextCount;
+                else if (destination.number - source.number == 1)
+                {
+                    temp = Math.Min(Math.Min(previousCount, currentCount), nextCount);
+                    if (!__Check(temp, ref result))
+                        return false;
+
+                    previousCount -= temp;
+                    if (previousCount > 0 && !__CheckEye(previousCount, ref result))
+                        return false;
+
+                    previousCount = currentCount - temp;
+                    currentCount = nextCount - temp;
+                    nextCount = 1;
                 }
                 else
-                {
-
-                }
-
+                    return false;
+                
                 source = destination;
-
-                node = node.Next;
             }
+
+            temp = Math.Min(Math.Min(previousCount, currentCount), nextCount);
+            if (!__Check(temp, ref result))
+                return false;
+
+            previousCount -= temp;
+            if (previousCount > 0 && !__CheckEye(previousCount, ref result))
+                return false;
+
+            currentCount -= temp;
+            if (currentCount > 0 && !__CheckEye(currentCount, ref result))
+                return false;
+
+            nextCount -= temp;
+            if (nextCount > 0 && !__CheckEye(nextCount, ref result))
+                return false;
+
+            return count > 13;
+        }
+
+        private bool __Check(int count, ref IEnumerable<int> winFlags)
+        {
+            IEnumerable<int> eyeFlags = winFlags;
+            for (int i = 0; i < 3; ++i)
+            {
+                if (!__CheckEye(count, ref eyeFlags))
+                {
+                    eyeFlags = null;
+
+                    break;
+                }
+            }
+
+            for (int i = 0; i < count; ++i)
+            {
+                winFlags =
+                        from winFlag in winFlags
+                        where ((winFlag >> 6) & 0x7) > 0
+                        select winFlag - (1 << 6);
+
+                if (!winFlags.Any())
+                    break;
+            }
+
+            if (eyeFlags != null)
+                winFlags = winFlags.Union(eyeFlags);
+
+            return winFlags.Any();
+        }
+
+        private bool __CheckEye(int count, ref IEnumerable<int> winFlags)
+        {
+            switch(count)
+            {
+                case 2:
+                    winFlags =
+                       from winFlag in winFlags
+                       where (winFlag & 0x7) > 0
+                       select winFlag - 1;
+
+                    if (!winFlags.Any())
+                        return false;
+
+                    break;
+                case 3:
+                    winFlags =
+                       from winFlag in winFlags
+                       where ((winFlag >> 3) & 0x7) > 0
+                       select winFlag - (1 << 3);
+
+                    if (!winFlags.Any())
+                        return false;
+
+                    break;
+                case 4:
+                    winFlags =
+                       (from winFlag in winFlags
+                       where ((winFlag >> 3) & 0x7) > 0
+                       select winFlag - (1 << 3)).Union(from winFlag in winFlags
+                                                        where (winFlag & 0x7) > 1
+                                                        select winFlag - 2);
+
+                    if (!winFlags.Any())
+                        return false;
+                    break;
+                default:
+                    return false;
+            }
+
+            return true;
         }
     }
 
@@ -746,7 +949,7 @@ public class Mahjong
             if (__mahjong == null || !__isDraw)
                 return false;
 
-            if (__handIndices == null || __handTileIndices == null || __handTileIndices.Count != 14)
+            if (__handIndices == null || __handTileIndices == null || __handTileIndices.Count != 14 + __kongCount)
                 return false;
 
             __isDraw = false;
@@ -958,6 +1161,14 @@ public class Mahjong
             }
 
             RuleNode target = __ruleNodes[index];
+            if (target.type == RuleType.Win)
+            {
+                type = RuleType.Win;
+                
+                __Clear();
+
+                return -1;
+            }
             
             index = target.index;
             LinkedListNode<int> node = __handTileIndices == null ? null : __handTileIndices.First;
@@ -1214,14 +1425,31 @@ public class Mahjong
                 return -1;
             }
 
-            node1 = node.Next;
-            if (node1 == null)
+            int tileIndex = player.__poolTileIndices[count - 1];
+            while(node.Value == tileIndex)
             {
-                type = RuleType.Unknown;
+                node = node.Next;
+                if (node == null)
+                {
+                    type = RuleType.Unknown;
 
-                return -1;
+                    return -1;
+                }
             }
-            
+
+            node1 = node;
+            do
+            {
+                node1 = node1.Next;
+                if (node1 == null)
+                {
+                    type = RuleType.Unknown;
+
+                    return -1;
+                }
+            } while (node1.Value == tileIndex);
+
+
             i = __handIndices.IndexOf(node);
 
             if (handler != null)
@@ -1247,7 +1475,7 @@ public class Mahjong
             }
             
             --count;
-            result = __Add(player.__poolTileIndices[count]);
+            result = __Add(tileIndex);
 
             if (__groups == null)
                 __groups = new List<Group>();
@@ -1500,7 +1728,7 @@ public class Mahjong
     public void Shuffle(out int point0, out int point1, out int point2, out int point3)
     {
 
-        __tileIndices = new int[]
+        /*__tileIndices = new int[]
         {
             //round 0
             //0
@@ -1580,29 +1808,29 @@ public class Mahjong
             //0
             new Tile(TileType.Bomboo, 1) << 2,
             //1
-            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 2) << 2,
             //2
-            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 2) << 2,
             //3
-            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 2) << 2,
 
             //0
             new Tile(TileType.Bomboo, 2) << 2,
             //1
-            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 2) << 2,
             //2
-            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 2) << 2,
             //3
-            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 2) << 2,
 
             //0
             new Tile(TileType.Bomboo, 3) << 2,
             //1
-            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 2) << 2,
             //2
-            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 2) << 2,
             //3
-            new Tile(TileType.Dots, 0) << 2,
+            new Tile(TileType.Dots, 2) << 2,
         };
 
         point0 = 0;
@@ -1616,7 +1844,7 @@ public class Mahjong
         __dealerIndex = 0;// random.Next(0, 3);
         __playerIndex = __dealerIndex;
 
-        return;
+        return;*/
 
         int poolTileCount = 144, handTileCount = 18;
 

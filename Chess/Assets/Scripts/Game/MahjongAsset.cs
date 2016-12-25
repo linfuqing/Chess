@@ -78,8 +78,10 @@ public class MahjongAsset : MonoBehaviour, IPointerClickHandler, IPointerDownHan
     {
         if (onDiscard == null)
         {
-            if(__pointerEventData != null)
-                ((IPointerUpHandler)this).OnPointerUp(__pointerEventData);
+            /*if(__pointerEventData != null)
+                ((IPointerUpHandler)this).OnPointerUp(__pointerEventData);*/
+
+            __pointerEventData = null;
         }
         else if (__pointerEventData != null)
         {
@@ -133,7 +135,7 @@ public class MahjongAsset : MonoBehaviour, IPointerClickHandler, IPointerDownHan
         if (__pointerEventData == null)
             return;
 
-        if ((__pointerEventData.position - (Vector2)__pointerEventData.pressEventCamera.WorldToScreenPoint(__position)).sqrMagnitude > sqrDistance)
+        if (onDiscard != null && (__pointerEventData.position - (Vector2)__pointerEventData.pressEventCamera.WorldToScreenPoint(__position)).sqrMagnitude > sqrDistance)
             onDiscard();
 
         Camera camera = eventData.pressEventCamera;

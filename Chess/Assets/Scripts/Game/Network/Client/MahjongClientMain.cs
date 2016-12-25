@@ -6,6 +6,13 @@ public class MahjongClientMain : MonoBehaviour
 {
     private MahjongClient __client;
 
+    public void Create(string ipAddress)
+    {
+        __client.onConnect += __OnConnect;
+        __client.ipAddress = ipAddress;
+        __client.Create();
+    }
+
     private void __OnRegistered(Node node)
     {
         ZG.Network.Lobby.Node temp = node as ZG.Network.Lobby.Node;
@@ -25,10 +32,10 @@ public class MahjongClientMain : MonoBehaviour
         __client = GetComponent<MahjongClient>();
     }
 
-    void Start()
+    /*void Start()
     {
         __client.onConnect += __OnConnect;
 
         __client.Create();
-    }
+    }*/
 }

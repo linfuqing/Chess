@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 using UnityEngine.Networking;
 using ZG.Network.Lobby;
 
@@ -75,7 +76,8 @@ public class MahjongClientPlayer : Node
     private int __discardCount;
     private int __scoreCount;
     private int __groupCount;
-    private float __time;
+    private float __coolDown;
+    private float __holdTime;
     private LinkedListNode<Cache> __handle;
     private LinkedList<Cache> __caches;
     private LinkedList<Handle> __handles;
@@ -194,9 +196,9 @@ public class MahjongClientPlayer : Node
 
         tile.asset.onDiscard = delegate ()
         {
-            if (__time > 0.0f)
+            if (__coolDown > 0.0f)
                 return;
-
+            
             CmdDiscard(tile.index);
         };
     }
@@ -211,6 +213,14 @@ public class MahjongClientPlayer : Node
         }
     }
     
+    private void __OnHold(NetworkReader reader)
+    {
+        if (reader == null)
+            return;
+
+        RpcHold(reader.ReadSingle());
+    }
+
     private void __OnDraw(NetworkReader reader)
     {
         if (reader == null)
@@ -241,6 +251,11 @@ public class MahjongClientPlayer : Node
             return;
 
         RpcDo((Mahjong.RuleType)reader.ReadByte(), reader.ReadByte());
+    }
+
+    private void RpcHold(float time)
+    {
+        __holdTime = time + Time.time;
     }
 
     private void RpcDraw(byte index, byte code)
@@ -285,6 +300,8 @@ public class MahjongClientPlayer : Node
 
     private void RpcThrow(byte index, byte group, Mahjong.Tile instance)
     {
+        __holdTime = 0.0f;
+
         if (__handle != null && __handle.Value.tile.index == index)
         {
             if (__caches == null)
@@ -333,7 +350,7 @@ public class MahjongClientPlayer : Node
 
                 __Throw(node.Value.tile, group, instance);
 
-                __time = Mathf.Max(__time, assets.throwTime);
+                __coolDown = Mathf.Max(__coolDown, assets.throwTime);
             }
             
             if (__handle != null)
@@ -346,13 +363,15 @@ public class MahjongClientPlayer : Node
                     __caches = new LinkedList<Cache>();
 
                 __caches.AddLast(__handle);
+
+                __handle = null;
             }
         }
     }
 
     private void RpcTry(Mahjong.RuleType type)
     {
-
+        __holdTime = 0.0f;
     }
 
     private void RpcDo(Mahjong.RuleType type, byte group)
@@ -365,9 +384,14 @@ public class MahjongClientPlayer : Node
             return;
 
         MahjongClient host = base.host as MahjongClient;
-        if (host == null || host.asset == null)
+        if (host == null)
             return;
 
+        Transform transform = host.asset == null ? null : host.asset.transform;
+        if (transform == null)
+            return;
+
+        transform.SetParent(this.transform, false);
         assets.Group(host.asset, temp.index, temp.count);
 
         host.asset = null;
@@ -407,6 +431,7 @@ public class MahjongClientPlayer : Node
 
     void Awake()
     {
+        RegisterHandler((short)MahjongNetworkRPCHandle.Hold, __OnHold);
         RegisterHandler((short)MahjongNetworkRPCHandle.Draw, __OnDraw);
         RegisterHandler((short)MahjongNetworkRPCHandle.Throw, __OnThrow);
         RegisterHandler((short)MahjongNetworkRPCHandle.Try, __OnTry);
@@ -417,99 +442,119 @@ public class MahjongClientPlayer : Node
 
     void Update()
     {
-        if (assets == null)
-            return;
-
-        __time -= Time.deltaTime;
-        if (__time > 0.0f)
+        MahjongClient host = base.host as MahjongClient;
+        if (host != null && host.texts != null)
         {
-            Handle handle;
-            Transform transform;
-            Vector3 position;
-            int index = 0;
-            for (LinkedListNode<Handle> node = __handles == null ? null : __handles.First; node != null; node = node.Next)
+            MahjongClientPlayer player = host.localPlayer as MahjongClientPlayer;
+            if (player != null)
             {
-                handle = node.Value;
-                transform = (handle.tile.asset == null || handle.tile.asset.isDraging) ? null : handle.tile.asset.transform;
-                if (transform != null)
+                int index = (4 + type - player.type) & 3;
+                if (index >= 0 && index < host.texts.Length)
                 {
-                    position = transform.localPosition;
-                    position.x = Mathf.SmoothDamp(position.x, assets.handPosition.x + assets.width * index, ref handle.velocity, assets.smoothTime, assets.maxSpeed);
-                    transform.localPosition = position;
+                    Text text = host.texts[index];
+                    if (text != null)
+                    {
+                        float time = Time.time;
 
-
-                    node.Value = handle;
+                        text.text = time > __holdTime ?  string.Empty : Mathf.RoundToInt(__holdTime - time).ToString();
+                    }
                 }
-                
-                ++index;
             }
         }
-        else if(__caches != null)
+
+        if (assets != null)
         {
-
-            LinkedListNode<Cache> cacheNode;
-            Cache cache;
-            while (__caches.Count > 0)
+            __coolDown -= Time.deltaTime;
+            if (__coolDown > 0.0f)
             {
-                cacheNode = __caches.First;
-                __caches.RemoveFirst();
-                if (cacheNode != null)
+                Handle handle;
+                Transform transform;
+                Vector3 position;
+                int index = 0;
+                for (LinkedListNode<Handle> node = __handles == null ? null : __handles.First; node != null; node = node.Next)
                 {
-                    cache = cacheNode.Value;
-                    if (cache.instance != null)
+                    handle = node.Value;
+                    transform = (handle.tile.asset == null || handle.tile.asset.isDraging) ? null : handle.tile.asset.transform;
+                    if (transform != null)
                     {
-                        __Throw(cache.tile, cache.group, (Mahjong.Tile)cache.instance);
+                        position = transform.localPosition;
+                        position.x = Mathf.SmoothDamp(position.x, assets.handPosition.x + assets.width * index, ref handle.velocity, assets.smoothTime, assets.maxSpeed);
+                        transform.localPosition = position;
 
-                        __time = assets.throwTime;
-                    }
-                    else if (cache.tile.asset != null)
-                    {
-                        if (cache.tile.asset != null && isLocalPlayer)
-                            __Discard(cache.tile);
 
-                        __Add(cache.tile);
-
-                        if (cache.tile.asset != null)
-                            cache.tile.asset.Move();
-
-                        __time = assets.moveTime;
+                        node.Value = handle;
                     }
 
-                    break;
+                    ++index;
                 }
             }
-            
-            if(__caches.Count < 1 && __selectors != null && __selectors.Count > 0)
+            else if (__caches != null)
             {
-                LinkedListNode<Selector> selectorNode;
-                Selector selector;
-                Handle handle;
-                int index = 0;
-                for (LinkedListNode<Handle> hanldeNode = __handles == null ? null : __handles.First; hanldeNode != null; hanldeNode = hanldeNode.Next)
+
+                LinkedListNode<Cache> cacheNode;
+                Cache cache;
+                while (__caches.Count > 0)
                 {
-                    handle = hanldeNode.Value;
-                    if (handle.tile.asset != null)
+                    cacheNode = __caches.First;
+                    __caches.RemoveFirst();
+                    if (cacheNode != null)
                     {
-                        for(selectorNode = __selectors.First; selectorNode != null; selectorNode = selectorNode.Next)
+                        cache = cacheNode.Value;
+                        if (cache.instance != null)
                         {
-                            selector = selectorNode.Value;
-                            if (selector.ruleNode.index == index)
+                            __Throw(cache.tile, cache.group, (Mahjong.Tile)cache.instance);
+
+                            __coolDown = assets.throwTime;
+                        }
+                        else if (cache.tile.asset != null)
+                        {
+                            if (cache.tile.asset != null && isLocalPlayer)
+                                __Discard(cache.tile);
+
+                            __Add(cache.tile);
+
+                            if (cache.tile.asset != null)
+                                cache.tile.asset.Move();
+
+                            __coolDown = assets.moveTime;
+                        }
+
+                        break;
+                    }
+                }
+
+                if (__caches.Count < 1 && __selectors != null && __selectors.Count > 0)
+                {
+                    LinkedListNode<Selector> selectorNode;
+                    Selector selector;
+                    Handle handle;
+                    int index = 0;
+                    for (LinkedListNode<Handle> hanldeNode = __handles == null ? null : __handles.First; hanldeNode != null; hanldeNode = hanldeNode.Next)
+                    {
+                        handle = hanldeNode.Value;
+                        if (handle.tile.asset != null)
+                        {
+                            for (selectorNode = __selectors.First; selectorNode != null; selectorNode = selectorNode.Next)
                             {
-                                handle.tile.asset.onSelected = selector.handler;
+                                selector = selectorNode.Value;
+                                if (selector.ruleNode.index == index)
+                                {
+                                    handle.tile.asset.onSelected = selector.handler;
 
-                                if (__selectedAssets == null)
-                                    __selectedAssets = new List<MahjongAsset>();
+                                    if (__selectedAssets == null)
+                                        __selectedAssets = new List<MahjongAsset>();
 
-                                __selectedAssets.Add(handle.tile.asset);
+                                    __selectedAssets.Add(handle.tile.asset);
 
-                                __selectors.Remove(selectorNode);
+                                    __selectors.Remove(selectorNode);
 
-                                break;
+                                    break;
+                                }
                             }
                         }
+
+                        ++index;
                     }
-                    
-                    ++index;
                 }
             }
         }

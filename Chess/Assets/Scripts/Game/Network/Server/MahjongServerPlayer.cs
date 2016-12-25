@@ -20,6 +20,8 @@ public class MahjongServerPlayer : ServerObject
             result = reader.ReadByte();
         });
 
+        RpcHold(timeout);
+
         float time = Time.time + timeout;
         do
         {
@@ -57,6 +59,14 @@ public class MahjongServerPlayer : ServerObject
     public void Do(Mahjong.RuleType type, byte group)
     {
         RpcDo(type, group);
+    }
+
+    private void RpcHold(float time)
+    {
+        NetworkWriter writer = RpcStart();
+        writer.Write(time);
+
+        RpcEnd((short)MahjongNetworkRPCHandle.Hold);
     }
     
     private void RpcDraw(byte index, byte code)

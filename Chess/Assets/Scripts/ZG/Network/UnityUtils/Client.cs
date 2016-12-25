@@ -157,6 +157,7 @@ namespace ZG.Network
 
             if (__client != null)
             {
+                //__client.Disconnect();
                 __client.Shutdown();
                 __client = null;
             }
@@ -381,6 +382,11 @@ namespace ZG.Network
             }
 
             return __message;
+        }
+
+        void OnDestroy()
+        {
+            Shutdown();
         }
     }
 }

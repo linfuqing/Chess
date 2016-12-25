@@ -13,6 +13,7 @@ public class MahjongClient : Client
     public Button pong;
     public Button kong;
     public Button win;
+    public Text[] texts;
     public MahjongAsset asset;
 
     private Dictionary<byte, byte> __tiles;
@@ -165,7 +166,7 @@ public class MahjongClient : Client
                     int temp = ruleIndex;
                     player.Select(ruleNodes[temp], delegate ()
                     {
-                        player.Try((byte)ruleIndex);
+                        player.Try((byte)temp);
 
                         __ClearEvents();
                     });

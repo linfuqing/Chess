@@ -11,7 +11,8 @@ public enum MahjongNetworkMessageType
 
 public enum MahjongNetworkRPCHandle
 {
-    Draw = 10,
+    Hold = 10, 
+    Draw,
     Throw, 
     Try, 
     Do

@@ -69,7 +69,7 @@ public class MahjongAssets : ScriptableObject
         if (transform == null)
             return;
         
-        transform.localEulerAngles = new Vector3(90.0f, index > 2 ? 90.0f : 0.0f, 0.0f);
-        transform.localPosition = groupPosition - new Vector3((groupIndex * 3 + (index > 2 ? 1 : index)) * width + groupIndex * offset, index > 2 ? length : 0.0f, 0.0f);
+        transform.localEulerAngles = new Vector3(90.0f, 0.0f, 0.0f);
+        transform.localPosition = groupPosition - new Vector3((groupIndex * 3 + (index > 2 ? 1 : index)) * width + groupIndex * offset, index > 2 ? -length : 0.0f, 0.0f);
     }
 }

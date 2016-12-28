@@ -42,7 +42,25 @@ namespace ZG.Network.Lobby
                 return _count;
             }
         }
-        
+
+        public void Ready()
+        {
+            IHost host = base.host as IHost;
+            if (host == null)
+                return;
+
+            host.Ready(index);
+        }
+
+        public void NotReady()
+        {
+            IHost host = base.host as IHost;
+            if (host == null)
+                return;
+
+            host.NotReady(index);
+        }
+
         public override bool CopyFrom(Network.Node node)
         {
             if (!base.CopyFrom(node))

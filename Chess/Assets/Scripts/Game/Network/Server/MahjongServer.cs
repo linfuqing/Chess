@@ -187,12 +187,21 @@ public class MahjongServer : Server
 
         }
 
+        private bool __isRunning;
         private int __index;
         private int __point0;
         private int __point1;
         private int __point2;
         private int __point3;
         private Mahjong __mahjong;
+
+        public bool isRunning
+        {
+            get
+            {
+                return __isRunning;
+            }
+        }
 
         public int index
         {
@@ -209,8 +218,18 @@ public class MahjongServer : Server
             __mahjong = new Mahjong();
         }
 
+        public Player Get(int index)
+        {
+            if (__mahjong == null)
+                return null;
+
+            return __mahjong.Get(index) as Player;
+        }
+
         public IEnumerator Run()
         {
+            __isRunning = true;
+
             if (__mahjong == null)
             {
                 __mahjong = new Mahjong();
@@ -263,7 +282,13 @@ public class MahjongServer : Server
                                     ruleType = ruleNode.type = player.End(ruleNodeIndex);
 
                                     if (ruleType == Mahjong.RuleType.Win)
+                                    {
+                                        __isRunning = false;
+
+                                        __Break();
+
                                         yield break;
+                                    }
 
                                     if (ruleType != Mahjong.RuleType.Unknown)
                                         continue;
@@ -290,7 +315,13 @@ public class MahjongServer : Server
 
                             ruleType = __mahjong.ruleType;
                             if (ruleType == Mahjong.RuleType.Win)
+                            {
+                                __isRunning = false;
+
+                                __Break();
+
                                 yield break;
+                            }
 
                             if (ruleType != Mahjong.RuleType.Unknown)
                             {
@@ -313,12 +344,50 @@ public class MahjongServer : Server
                 yield return new WaitForSeconds(2.0f);
             }
         }
+
+        private void __Break()
+        {
+            int i, j, count;
+            Player player;
+            MahjongServerPlayer instance;
+            ZG.Network.Lobby.Node node;
+            for(i = 0; i < 4; ++i)
+            {
+                player = __mahjong.Get(index) as Player;
+                instance = player == null ? null : player.instance;
+                node = instance == null ? null : instance.node as ZG.Network.Lobby.Node;
+                if (node != null)
+                {
+                    count = node.count;
+                    for(j = 0; j < count; ++j)
+                        node.NotReady();
+                }
+            }
+        }
     }
 
     private Pool<string> __playerNames;
     private Pool<string> __roomNames;
     private Dictionary<string, Player> __playerMap;
     private Dictionary<string, Room> __roomMap;
+    
+    public int CreateRoom(string name)
+    {
+        if (__roomMap == null)
+            __roomMap = new Dictionary<string, Room>();
+        else if (__roomMap.ContainsKey(name))
+            return -1;
+
+        int roomIndex = nextRoomIndex;
+        if (__roomNames == null)
+            __roomNames = new Pool<string>();
+
+        __roomNames.Insert(roomIndex, name);
+
+        __roomMap[name] = new Room(roomIndex);
+
+        return roomIndex;
+    }
 
     public void SendTileCodeMessage(int connectionId, byte count, IEnumerable<byte> codes)
     {
@@ -329,70 +398,75 @@ public class MahjongServer : Server
     {
         Send(connectionId, (short)MahjongNetworkMessageType.RuleNodes, new MahjongRuleMessage(ruleNodes));
     }
-
-    public new void Awake()
+    
+    public new void Create()
     {
-        base.Awake();
-
         onRegistered += __OnRegistered;
         onReady += __OnReady;
+
+        base.Create();
+
+        RegisterHandler((short)MahjongNetworkMessageType.Room, __OnRoom);
+    }
+    
+    protected override bool _GetRoomInfo(NetworkReader reader, int connectionId, int roomIndex, out int length)
+    {
+        length = 4;
+
+        if (__roomNames == null || __roomMap == null)
+            return false;
+
+        string roomName;
+        if (!__roomNames.TryGetValue(roomIndex, out roomName))
+            return false;
+        
+        return __roomMap.ContainsKey(roomName);
     }
 
-    protected override bool _GetInfo(NetworkReader reader, int connectionId, out short type, out int roomIndex)
+    protected override bool _GetPlayerInfo(NetworkReader reader, int connectionId, out short type, out int roomIndex, out int playerIndex)
     {
         type = 0;
         roomIndex = -1;
-        if (reader == null)
+        playerIndex = -1;
+        if (__roomMap == null)
             return false;
 
-        InitMessage message = reader.ReadMessage<InitMessage>();
+        InitMessage message = reader == null ? null : reader.ReadMessage<InitMessage>();
         if (message == null)
+            return false;
+
+        Room room;
+        if (!__roomMap.TryGetValue(message.roomName, out room) || room == null)
             return false;
 
         if (__playerMap == null)
             __playerMap = new Dictionary<string, Player>();
 
-        Room room;
         Player player;
-        if (!__playerMap.TryGetValue(message.username, out player))
+        if (!__playerMap.TryGetValue(message.name, out player))
         {
-            if (__roomMap == null)
-                __roomMap = new Dictionary<string, Room>();
-
-            if (!__roomMap.TryGetValue(message.roomName, out room) || room == null)
-            {
-                roomIndex = nextRoomIndex;
-                if (__roomNames == null)
-                    __roomNames = new Pool<string>();
-
-                __roomNames.Insert(roomIndex, message.roomName);
-
-                room = new Room(roomIndex);
-                __roomMap.Add(message.roomName, room);
-            }
-            else
-                roomIndex = room.index;
-            
+            player.index = GetRoomNextIndex(roomIndex);
             player.roomName = message.roomName;
-            player.index = GetCount(roomIndex);
-            __playerMap.Add(message.username, player);
+            __playerMap.Add(message.name, player);
             
             if (__playerNames == null)
                 __playerNames = new Pool<string>();
 
-            __playerNames.Insert(nextNodeIndex, message.username);
+            __playerNames.Insert(nextNodeIndex, message.name);
         }
-        else if (__roomMap == null || !__roomMap.TryGetValue(player.roomName, out room) || room == null)
-            return false;
 
         type = (short)(player.index >= 0 && player.index < 4 ? player.index : 4);
         roomIndex = room.index;
+        playerIndex = player.index;
 
         return true;
     }
 
     protected override bool _Unregister(int index)
     {
+        if (!base._Unregister(index))
+            return false;
+
         if (__playerNames != null)
         {
             string name;
@@ -406,10 +480,14 @@ public class MahjongServer : Server
                         if (__roomMap != null)
                         {
                             Room room;
-                            if (__roomMap.TryGetValue(player.roomName, out room) && room != null && !IsRoomLoaded(room.index))
+                            if (__roomMap.TryGetValue(player.roomName, out room) && room != null)
                             {
-                                player.roomName = null;
-                                __playerMap[name] = player;
+                                if (room.isRunning)
+                                    return false;
+
+                                Room.Player temp = room.Get(player.index);
+                                if (temp != null)
+                                    temp.index = -1;
 
                                 if (GetCount(room.index) < 1)
                                 {
@@ -420,6 +498,8 @@ public class MahjongServer : Server
                                 }
                             }
                         }
+
+                        __playerMap.Remove(name);
                     }
                 }
 
@@ -458,7 +538,7 @@ public class MahjongServer : Server
         }
     }
 
-    private void __OnReady(int roomIndex)
+    private void __OnReady(int roomIndex, int count)
     {
         if (__roomNames == null || __roomMap == null)
             return;
@@ -471,6 +551,20 @@ public class MahjongServer : Server
         if (!__roomMap.TryGetValue(roomName, out room) || room == null)
             return;
 
-        StartCoroutine(room.Run());
+        if(count == 1)
+            StartCoroutine(room.Run());
+    }
+
+    private void __OnRoom(NetworkMessage message)
+    {
+        NetworkConnection connection = message == null ? null : message.conn;
+        if (connection == null)
+            return;
+
+        string name = Guid.NewGuid().ToString();
+        if (CreateRoom(name) == -1)
+            return;
+
+        Send(connection.connectionId, (short)MahjongNetworkMessageType.Room, new NameMessage(name));
     }
 }

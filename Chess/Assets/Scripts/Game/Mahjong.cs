@@ -738,17 +738,17 @@ public class Mahjong
                 if (__mahjong == null)
                     throw new InvalidOperationException();
 
-                if (value < 0 || value > 3)
-                    throw new IndexOutOfRangeException();
 #endif
-
-                if (__mahjong.__players == null || __mahjong.__players.Length < 4)
-                    __mahjong.__players = new Player[4];
-
-                if(__index >= 0 && __index < 4)
+                if(__mahjong.__players != null && __index >= 0 && __index < 4)
                     __mahjong.__players[__index] = null;
 
-                __mahjong.__players[value] = this;
+                if (value >= 0 && value < 4)
+                {
+                    if (__mahjong.__players == null || __mahjong.__players.Length < 4)
+                        __mahjong.__players = new Player[4];
+
+                    __mahjong.__players[value] = this;
+                }
 
                 __index = value;
             }

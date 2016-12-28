@@ -6,7 +6,7 @@ using System.Collections.Generic;
 
 namespace ZG.Network.Lobby
 {
-    public class Server : Network.Server
+    public class Server : Network.Server, IHost
     {
         public event Action<int, int> onReady;
         public event Action<int, int> onNotReady;
@@ -25,12 +25,94 @@ namespace ZG.Network.Lobby
             return room.count;
         }
 
+        public void Ready(short index)
+        {
+            Network.Node player = Get(index);
+
+            Node node;
+            if (GetNode(index, out node))
+            {
+                Room room;
+                if (__rooms.TryGetValue(node.roomIndex, out room) && room != null)
+                {
+                    int count = room.count + 1;
+                    if (room.Ready(node.playerIndex))
+                    {
+                        if (player != null)
+                            player.Rpc((short)HostMessageHandle.Ready, new ReadyMessage());
+
+                        if (count == room.count)
+                        {
+                            if (onReady != null)
+                                onReady(node.roomIndex, count);
+                        }
+                    }
+                    else
+                    {
+                        Debug.LogError("Ready Fail:" + index);
+
+                        return;
+                    }
+                }
+            }
+
+            Lobby.Node temp = player as Lobby.Node;
+            if (temp != null)
+            {
+                ++temp._count;
+
+                if (temp._onReady != null)
+                    temp._onReady();
+            }
+        }
+
+        public void NotReady(short index)
+        {
+            Network.Node player = Get(index);
+
+            Node node;
+            if (GetNode(index, out node))
+            {
+                Room room;
+                if (__rooms.TryGetValue(node.roomIndex, out room) && room != null)
+                {
+                    int count = room.count - 1;
+                    if (room.NotReady(node.playerIndex))
+                    {
+                        if (player != null)
+                            player.Rpc((short)HostMessageHandle.NotReady, new NotReadyMessage());
+
+                        if (count == room.count)
+                        {
+                            if (onReady != null)
+                                onReady(node.roomIndex, count);
+                        }
+                    }
+                    else
+                    {
+                        Debug.LogError("Not Ready Fail:" + index);
+
+                        return;
+                    }
+                }
+            }
+
+            Lobby.Node temp = player as Lobby.Node;
+            if (temp != null)
+            {
+                --temp._count;
+
+                if (temp._onNotReady != null)
+                    temp._onNotReady();
+            }
+        }
+
         public void Awake()
         {
             onRegistered += __OnRegistered;
         }
 
-        protected virtual bool _GetRoomInfo(NetworkReader reader, out int length)
+        protected virtual bool _GetRoomInfo(NetworkReader reader, int connectionId, int roomIndex, out int length)
         {
             length = 0;
 
@@ -73,9 +155,9 @@ namespace ZG.Network.Lobby
             if (!__rooms.TryGetValue(roomIndex, out room))
             {
                 int length;
-                if (_GetRoomInfo(reader, out length))
+                if (_GetRoomInfo(reader, connectionId, roomIndex, out length))
                 {
-                    room = new Room(length);
+                    room = new Room(length, 0);
 
                     __rooms.Insert(playerIndex, room);
                 }
@@ -84,7 +166,7 @@ namespace ZG.Network.Lobby
             }
 
             if (connectionId >= 0)
-                Send(connectionId, (short)HostMessageType.RoomInfo, new RoomMessage((short)nextNodeIndex, (short)roomIndex, (short)room.length));
+                Send(connectionId, (short)HostMessageType.RoomInfo, new RoomMessage((short)nextNodeIndex, (short)playerIndex, (short)roomIndex, (short)room.length, (short)room.count));
             
             return true;
         }
@@ -122,83 +204,18 @@ namespace ZG.Network.Lobby
             if (player == null)
                 return;
 
-            int index = player.index;
-            Lobby.Node temp = player as Lobby.Node;
-            Node node;
+            short index = player.index;
             player.RegisterHandler((short)HostMessageHandle.Ready, delegate (NetworkReader reader)
             {
-                if (GetNode(index, out node))
-                {
-                    Room room;
-                    if (__rooms.TryGetValue(node.roomIndex, out room) && room != null)
-                    {
-                        int count = room.count + 1;
-                        if (room.Ready(node.playerIndex))
-                        {
-                            if(player != null)
-                                player.Rpc((short)HostMessageHandle.Ready, new ReadyMessage());
-
-                            if (count == room.count)
-                            {
-                                if (onReady != null)
-                                    onReady(node.roomIndex, count);
-                            }
-                        }
-                        else
-                        {
-                            Debug.LogError("Ready Fail:" + index);
-
-                            return;
-                        }
-                    }
-                }
-
-                if (temp != null)
-                {
-                    ++temp._count;
-
-                    if (temp._onReady != null)
-                        temp._onReady();
-                }
+                Ready(index);
             });
 
             player.RegisterHandler((short)HostMessageHandle.NotReady, delegate(NetworkReader reader)
             {
-                if (GetNode(player.index, out node))
-                {
-                    Room room;
-                    if (__rooms.TryGetValue(node.roomIndex, out room) && room != null)
-                    {
-                        int count = room.count - 1;
-                        if (room.NotReady(index))
-                        {
-                            if(player != null)
-                                player.Rpc((short)HostMessageHandle.NotReady, new ReadyMessage());
-
-                            if (count == room.count)
-                            {
-                                if (onNotReady != null)
-                                    onNotReady(node.roomIndex, count);
-                            }
-                        }
-                        else
-                        {
-                            Debug.LogError("Not Ready Fail:" + index);
-
-                            return;
-                        }
-                    }
-                }
-                
-                if (temp != null)
-                {
-                    --temp._count;
-
-                    if (temp._onNotReady != null)
-                        temp._onNotReady();
-                }
+                NotReady(index);
             });
-            
+
+            Node node;
             if (GetNode(player.index, out node))
             {
                 IEnumerable<KeyValuePair<int, Network.Node>> room = GetRoom(node.roomIndex);
@@ -218,6 +235,28 @@ namespace ZG.Network.Lobby
                             hostMessage.index = instance.index;
                             for (i = 0; i < instance._count; ++i)
                                 NetworkServer.SendToClient(node.connectionId, (short)Network.HostMessageType.Rpc, hostMessage);
+                        }
+                    }
+
+                    IEnumerable<int> neighborRoomIndices = GetNeighborRoomIndices(node.roomIndex);
+                    if(neighborRoomIndices != null)
+                    {
+                        foreach(int neighborRoomIndex in neighborRoomIndices)
+                        {
+                            room = GetRoom(neighborRoomIndex);
+                            if (room == null)
+                                continue;
+
+                            foreach (KeyValuePair<int, Network.Node> pair in room)
+                            {
+                                instance = pair.Value as Lobby.Node;
+                                if (instance != null)
+                                {
+                                    hostMessage.index = instance.index;
+                                    for (i = 0; i < instance._count; ++i)
+                                        NetworkServer.SendToClient(node.connectionId, (short)Network.HostMessageType.Rpc, hostMessage);
+                                }
+                            }
                         }
                     }
                 }

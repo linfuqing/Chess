@@ -12,6 +12,13 @@ namespace ZG.Network.Lobby
         Ready = 0,
         NotReady
     }
+
+    public interface IHost : Network.IHost
+    {
+        void Ready(short index);
+
+        void NotReady(short index);
+    }
     
     public class Room
     {
@@ -39,11 +46,17 @@ namespace ZG.Network.Lobby
             {
                 return __count;
             }
+
+            set
+            {
+                __count = value;
+            }
         }
 
-        public Room(int length)
+        public Room(int length, int count)
         {
             __length = length;
+            __count = count;
         }
 
         public bool Ready(int index)
@@ -71,13 +84,16 @@ namespace ZG.Network.Lobby
 
                 __players[index] = ++count;
 
-                foreach (int temp in __players)
+                if (__count == count - 1)
                 {
-                    if (temp < count)
-                        return true;
-                }
+                    foreach (int temp in __players)
+                    {
+                        if (temp < count)
+                            return true;
+                    }
 
-                __count = count;
+                    __count = count;
+                }
             }
 
             return true;
@@ -94,15 +110,18 @@ namespace ZG.Network.Lobby
 
             __players[index] = --count;
 
-            foreach (int temp in __players)
+            if (__count == count + 1)
             {
-                if (temp > count)
-                    return true;
-            }
+                foreach (int temp in __players)
+                {
+                    if (temp > count)
+                        return true;
+                }
 
-            __count = count;
-            if (__count < 1)
-                __players.Clear();
+                __count = count;
+                if (__count < 1)
+                    __players.Clear();
+            }
 
             return true;
         }
@@ -111,19 +130,23 @@ namespace ZG.Network.Lobby
     public class RoomMessage : MessageBase
     {
         public short index;
+        public short playerIndex;
         public short roomIndex;
         public short roomLength;
+        public short roomCount;
 
         public RoomMessage()
         {
 
         }
 
-        public RoomMessage(short index, short roomIndex, short roomLength)
+        public RoomMessage(short index, short playerIndex, short roomIndex, short roomLength, short roomCount)
         {
             this.index = index;
+            this.playerIndex = playerIndex;
             this.roomIndex = roomIndex;
             this.roomLength = roomLength;
+            this.roomCount = roomCount;
         }
     }
 }

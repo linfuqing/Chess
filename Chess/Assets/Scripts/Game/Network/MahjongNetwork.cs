@@ -4,7 +4,8 @@ using UnityEngine.Networking;
 
 public enum MahjongNetworkMessageType
 {
-    Shuffle = 200,
+    Room = 300,
+    Shuffle, 
     TileCodes,
     RuleNodes
 }
@@ -134,16 +135,16 @@ public class MahjongRuleMessage : MessageBase
 
 public class NameMessage : MessageBase
 {
-    public string username;
+    public string name;
 
     public NameMessage()
     {
 
     }
 
-    public NameMessage(string username)
+    public NameMessage(string name)
     {
-        this.username = username;
+        this.name = name;
     }
 }
 
@@ -166,7 +167,7 @@ public class InitMessage : NameMessage
         if (writer == null)
             return;
 
-        writer.Write(username);
+        writer.Write(name);
         writer.Write(roomName);
     }
 
@@ -175,7 +176,7 @@ public class InitMessage : NameMessage
         if (reader == null)
             return;
         
-        username = reader.ReadString();
+        name = reader.ReadString();
         try
         {
             roomName = reader.ReadString();

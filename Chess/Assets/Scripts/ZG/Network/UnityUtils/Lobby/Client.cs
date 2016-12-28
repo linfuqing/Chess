@@ -1,20 +1,40 @@
 ﻿using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.Networking.NetworkSystem;
-using UnityEngine.SceneManagement;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 
 namespace ZG.Network.Lobby
 {
-    public class Client : Network.Client
+    public class Client : Network.Client, IHost
     {
+        private struct Player
+        {
+            public int index;
+            public int roomIndex;
+
+            public Player(int index, int roomIndex)
+            {
+                this.index = index;
+                this.roomIndex = roomIndex;
+            }
+        }
+
         public event Action<int, int> onReady;
         public event Action<int, int> onNotReady;
 
-        private Dictionary<int, int> __roomIndices;
+        private Dictionary<int, Player> __players;
         private Dictionary<int, Room> __rooms;
+
+        public void Ready(short index)
+        {
+            Rpc(index, (short)HostMessageHandle.Ready, new ReadyMessage());
+        }
+
+        public void NotReady(short index)
+        {
+            Rpc(index, (short)HostMessageHandle.NotReady, new NotReadyMessage());
+        }
 
         public override void Shutdown()
         {
@@ -39,27 +59,27 @@ namespace ZG.Network.Lobby
             __Clear();
         }
 
-        private void __OnUnregistered(Network.Node player)
+        private void __OnUnregistered(Network.Node node)
         {
-            if (player == null || __roomIndices == null)
+            if (node == null || __players == null)
                 return;
 
-            int roomIndex;
-            if (!__roomIndices.TryGetValue(player.index, out roomIndex))
+            Player player;
+            if (!__players.TryGetValue(node.index, out player))
                 return;
 
-            int index = player.index;
-            __roomIndices.Remove(index);
+            int index = node.index;
+            __players.Remove(index);
 
             if (__rooms == null)
                 return;
 
             Room room;
-            if (!__rooms.TryGetValue(roomIndex, out room) || room == null)
+            if (!__rooms.TryGetValue(player.roomIndex, out room) || room == null)
                 return;
             
-            Node temp = player as Node;
-            while(room.NotReady(index))
+            Node temp = node as Node;
+            while(room.NotReady(player.index))
             {
                 if(temp != null)
                 {
@@ -71,30 +91,30 @@ namespace ZG.Network.Lobby
             }
         }
 
-        private void __OnRegistered(Network.Node player)
+        private void __OnRegistered(Network.Node node)
         {
-            if (player == null)
+            if (node == null)
                 return;
 
-            int index = player.index;
-            Node temp = player as Node;
-            player.RegisterHandler((short)HostMessageHandle.Ready, delegate (NetworkReader reader)
+            int index = node.index;
+            Node temp = node as Node;
+            node.RegisterHandler((short)HostMessageHandle.Ready, delegate (NetworkReader reader)
             {
-                if(__roomIndices != null && __rooms != null)
+                if(__players != null && __rooms != null)
                 {
-                    int roomIndex;
-                    if(__roomIndices.TryGetValue(index, out roomIndex))
+                    Player player;
+                    if(__players.TryGetValue(index, out player))
                     {
                         Room room;
-                        if(__rooms.TryGetValue(roomIndex, out room) && room != null)
+                        if(__rooms.TryGetValue(player.roomIndex, out room) && room != null)
                         {
                             int count = room.count + 1;
-                            if (room.Ready(index))
+                            if (room.Ready(player.index))
                             {
                                 if (count == room.count)
                                 {
                                     if (onReady != null)
-                                        onReady(roomIndex, count);
+                                        onReady(player.roomIndex, count);
                                 }
                             }
                             else
@@ -116,23 +136,23 @@ namespace ZG.Network.Lobby
                 }
             });
 
-            player.RegisterHandler((short)HostMessageHandle.NotReady, delegate (NetworkReader reader)
+            node.RegisterHandler((short)HostMessageHandle.NotReady, delegate (NetworkReader reader)
             {
-                if (__roomIndices != null && __rooms != null)
+                if (__players != null && __rooms != null)
                 {
-                    int roomIndex;
-                    if (__roomIndices.TryGetValue(index, out roomIndex))
+                    Player player;
+                    if (__players.TryGetValue(index, out player))
                     {
                         Room room;
-                        if (__rooms.TryGetValue(roomIndex, out room) && room != null)
+                        if (__rooms.TryGetValue(player.roomIndex, out room) && room != null)
                         {
                             int count = room.count - 1;
-                            if (room.NotReady(index))
+                            if (room.NotReady(player.index))
                             {
                                 if (count == room.count)
                                 {
                                     if (onNotReady != null)
-                                        onNotReady(roomIndex, count);
+                                        onNotReady(player.roomIndex, count);
                                 }
                             }
                             else
@@ -161,19 +181,22 @@ namespace ZG.Network.Lobby
             if (roomMessage == null)
                 return;
 
-            if (__roomIndices == null)
-                __roomIndices = new Dictionary<int, int>();
+            if (__players == null)
+                __players = new Dictionary<int, Player>();
 
-            __roomIndices[roomMessage.index] = roomMessage.roomIndex;
+            __players[roomMessage.index] = new Player(roomMessage.playerIndex, roomMessage.roomIndex);
 
             if (__rooms == null)
                 __rooms = new Dictionary<int, Room>();
 
             Room room;
             if (__rooms.TryGetValue(roomMessage.roomIndex, out room) && room != null)
+            {
                 room.length = roomMessage.roomLength;
+                room.count = roomMessage.roomCount;
+            }
             else
-                __rooms.Add(roomMessage.roomIndex, new Room(roomMessage.roomLength));
+                __rooms.Add(roomMessage.roomIndex, new Room(roomMessage.roomLength, roomMessage.roomCount));
         }
         
         private void __Clear()
@@ -182,8 +205,8 @@ namespace ZG.Network.Lobby
             onUnregistered -= __OnUnregistered;
             onRegistered -= __OnRegistered;
 
-            if (__roomIndices != null)
-                __roomIndices.Clear();
+            if (__players != null)
+                __players.Clear();
 
             if (__rooms != null)
                 __rooms.Clear();

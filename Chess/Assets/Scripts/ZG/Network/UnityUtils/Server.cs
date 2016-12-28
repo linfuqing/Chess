@@ -62,12 +62,12 @@ namespace ZG.Network
                 return null;
             }
 
-            public int Add(Network.Node player)
+            public void Set(Network.Node player, int index)
             {
                 if (__players == null)
                     __players = new Pool<Network.Node>();
 
-                return __players.Add(player);
+                __players.Insert(index, player);
             }
 
             public bool Delete(int index)
@@ -302,18 +302,9 @@ namespace ZG.Network
         {
             short type;
             Node node;
-            if (!_Register(reader, -1, out type, out node.roomIndex))
+            if (!_Register(reader, -1, out type, out node.roomIndex, out node.playerIndex))
                 return false;
             
-            if (node.roomIndex < 0)
-                return false;
-
-            if (npc == null)
-                npc = type < 0 || prefabs == null || prefabs.Length <= type ? null : Instantiate(prefabs[type]);
-
-            if (npc == null)
-                return false;
-
             if (__rooms == null)
                 __rooms = new Pool<Room>();
 
@@ -324,14 +315,69 @@ namespace ZG.Network
 
                 __rooms.Insert(node.roomIndex, room);
             }
+            
+            Network.Node temp = room.Get(node.playerIndex);
+            if (npc == null)
+            {
+                if (temp == null)
+                {
+                    npc = type < 0 || prefabs == null || prefabs.Length <= type ? null : Instantiate(prefabs[type]);
 
+                    if (npc == null)
+                        return false;
+
+                    if (__nodes == null)
+                        __nodes = new Pool<Node>();
+
+                    npc._index = (short)__nodes.nextIndex;
+                    
+                    room.Set(npc, node.playerIndex);
+
+                    node.connectionId = -1;
+                    node.connectionIndex = -1;
+
+                    __nodes.Add(node);
+
+                }
+                else
+                    npc = temp;
+            }
+            else
+            {
+                if(temp == null)
+                {
+                    if (__nodes == null)
+                        __nodes = new Pool<Node>();
+
+                    npc._index = (short)__nodes.nextIndex;
+                    
+                    room.Set(npc, node.playerIndex);
+                    
+                    node.connectionId = -1;
+                    node.connectionIndex = -1;
+
+                    __nodes.Add(node);
+                }
+                else
+                {
+                    npc.CopyFrom(temp);
+
+                    if (temp._onDestroy != null)
+                        temp._onDestroy();
+
+                    Destroy(temp.gameObject);
+
+                    room.Set(npc, node.playerIndex);
+
+                    node.connectionId = -1;
+                    node.connectionIndex = -1;
+                    __nodes.Insert(npc._index, node);
+                }
+            }
+            
             npc._isLocalPlayer = false;
             npc._type = type;
 
-            if (__nodes == null)
-                __nodes = new Pool<Node>();
-
-            npc._index = (short)__nodes.nextIndex;
             npc._host = this;
 
             NetworkWriter writer = __GetWriter();
@@ -352,13 +398,6 @@ namespace ZG.Network
                 }
             }
 
-            node.playerIndex = room.Add(npc);
-
-            node.connectionId = -1;
-            node.connectionIndex = -1;
-
-            __nodes.Add(node);
-
             if (npc._onCreate != null)
                 npc._onCreate();
 
@@ -376,63 +415,86 @@ namespace ZG.Network
             else
             {
                 Node node;
-                if (__nodes.TryGetValue(index, out node) &&
-                    _Unregister(index))
+                if (__nodes.TryGetValue(index, out node))
                 {
-                    Room room;
-                    if (__rooms.TryGetValue(node.roomIndex, out room))
+                    if (_Unregister(index))
                     {
-                        Network.Node player = room == null ? null : room.Get(node.playerIndex);
-                        if (onUnregistered != null)
-                            onUnregistered(player);
-
-                        if (player is Network.Node)
+                        Room room;
+                        if (__rooms.TryGetValue(node.roomIndex, out room))
                         {
-                            if (player._onDestroy != null)
-                                player._onDestroy();
-                        }
+                            Network.Node player = room == null ? null : room.Get(node.playerIndex);
+                            if (onUnregistered != null)
+                                onUnregistered(player);
 
-                        if (player != null)
-                            Destroy(player.gameObject);
-
-                        result = room != null && room.Delete(node.playerIndex) && result;
-
-                        if(__nodeIndices != null)
-                        {
-                            Pool<int> indices;
-                            if(__nodeIndices.TryGetValue(node.connectionId, out indices) && indices != null)
+                            if (player is Network.Node)
                             {
-                                if (indices.RemoveAt(node.connectionIndex))
+                                if (player._onDestroy != null)
+                                    player._onDestroy();
+                            }
+
+                            if (player != null)
+                                Destroy(player.gameObject);
+
+                            result = room != null && room.Delete(node.playerIndex) && result;
+
+                            if (__nodeIndices != null)
+                            {
+                                Pool<int> indices;
+                                if (__nodeIndices.TryGetValue(node.connectionId, out indices) && indices != null)
                                 {
-                                    if (indices.count < 1)
-                                        __nodeIndices.Remove(node.connectionId);
+                                    if (indices.RemoveAt(node.connectionIndex))
+                                    {
+                                        if (indices.count < 1)
+                                            __nodeIndices.Remove(node.connectionId);
+                                    }
+                                    else
+                                        result = false;
                                 }
-                                else
-                                    result = false;
+                            }
+
+                            HostMessage message = __GetMessage(index, 0, null);
+                            if (room == null || room.count < 1)
+                                __rooms.RemoveAt(node.roomIndex);
+                            else
+                                room.Send((short)HostMessageType.Unregister, message, null);
+
+                            IEnumerable<int> neighborRoomIndices = room.neighborRoomIndices;
+                            if (neighborRoomIndices != null)
+                            {
+                                foreach (int neighborRoomIndex in neighborRoomIndices)
+                                {
+                                    if (__rooms.TryGetValue(neighborRoomIndex, out room) && room != null)
+                                        room.Send((short)HostMessageType.Unregister, message, null);
+                                }
                             }
                         }
-
-                        HostMessage message = __GetMessage(index, 0, null);
-                        if (room == null || room.count < 1)
-                            __rooms.RemoveAt(node.roomIndex);
                         else
-                            room.Send((short)HostMessageType.Unregister, message, null);
+                            result = false;
 
-                        IEnumerable<int> neighborRoomIndices = room.neighborRoomIndices;
-                        if (neighborRoomIndices != null)
+                        result = __nodes.RemoveAt(index) && result;
+                    }
+                    else if (__nodeIndices != null)
+                    {
+                        Pool<int> indices;
+                        if (__nodeIndices.TryGetValue(node.connectionId, out indices) && indices != null)
                         {
-                            foreach (int neighborRoomIndex in neighborRoomIndices)
+                            if (indices.RemoveAt(node.connectionIndex))
                             {
-                                if (__rooms.TryGetValue(neighborRoomIndex, out room) && room != null)
-                                    room.Send((short)HostMessageType.Unregister, message, null);
+                                if (indices.count < 1)
+                                    __nodeIndices.Remove(node.connectionId);
+                                    
+                                node.connectionId = -1;
+                                node.connectionIndex = -1;
+
+                                __nodes.Insert(index, node);
                             }
+                            else
+                                result = false;
                         }
                     }
-                    else
-                        result = false;
-
-                    result = __nodes.RemoveAt(index) && result;
                 }
+                else
+                    result = false;
             }
 
             return result;
@@ -665,7 +727,9 @@ namespace ZG.Network
             }
 
             node.roomIndex = roomIndex;
-            node.playerIndex = destinationRoom.Add(target);
+            node.playerIndex = destinationRoom.nextIndex;
+
+            destinationRoom.Set(target, node.playerIndex);
             
             __nodes.Insert(index, node);
 
@@ -1018,10 +1082,11 @@ namespace ZG.Network
             return null;
         }
 
-        protected virtual bool _Register(NetworkReader reader, int connectionId, out short type, out int roomIndex)
+        protected virtual bool _Register(NetworkReader reader, int connectionId, out short type, out int roomIndex, out int playerIndex)
         {
             type = 0;
             roomIndex = 0;
+            playerIndex = GetRoomNextIndex(roomIndex);
 
             return true;
         }
@@ -1042,7 +1107,7 @@ namespace ZG.Network
             short type;
             Node node;
             node.connectionId = connection.connectionId;
-            if (!_Register(message.reader, node.connectionId, out type, out node.roomIndex))
+            if (!_Register(message.reader, node.connectionId, out type, out node.roomIndex, out node.playerIndex))
             {
                 connection.Send((short)HostMessageType.Register, __GetMessage(-1, 0, null));
 
@@ -1051,16 +1116,6 @@ namespace ZG.Network
                 return;
             }
 
-            int numPrefabs = prefabs == null ? 0 : prefabs.Length;
-            Network.Node player = numPrefabs > type ? Instantiate(prefabs[type]) : (numPrefabs == 1 ? Instantiate(prefabs[0]) : null);
-            if (player == null)
-            {
-                connection.Send((short)HostMessageType.Register, __GetMessage(-1, 0, null));
-
-                Debug.LogError("Register Fail.");
-
-                return;
-            }
 
             if (__rooms == null)
                 __rooms = new Pool<Room>();
@@ -1072,14 +1127,62 @@ namespace ZG.Network
 
                 __rooms.Insert(node.roomIndex, room);
             }
-            
+
+            Network.Node player = room.Get(node.playerIndex);
+            if (player == null)
+            {
+                int numPrefabs = prefabs == null ? 0 : prefabs.Length;
+                player = numPrefabs > type ? Instantiate(prefabs[type]) : (numPrefabs == 1 ? Instantiate(prefabs[0]) : null);
+                if (player == null)
+                {
+                    connection.Send((short)HostMessageType.Register, __GetMessage(-1, 0, null));
+
+                    Debug.LogError("Register Fail.");
+
+                    return;
+                }
+                
+                if (__nodes == null)
+                    __nodes = new Pool<Node>();
+
+                player._index = (short)__nodes.nextIndex;
+                
+                room.Set(player, node.playerIndex);
+
+                if (__nodeIndices == null)
+                    __nodeIndices = new Dictionary<int, Pool<int>>();
+
+                Pool<int> indices;
+                if (!__nodeIndices.TryGetValue(node.connectionId, out indices) || indices == null)
+                {
+                    indices = new Pool<int>();
+                    __nodeIndices[node.connectionId] = indices;
+                }
+
+                node.connectionIndex = indices.nextIndex;
+
+                indices.Add(__nodes.Add(node));
+            }
+            else
+            {
+                if (__nodeIndices == null)
+                    __nodeIndices = new Dictionary<int, Pool<int>>();
+
+                Pool<int> indices;
+                if (!__nodeIndices.TryGetValue(node.connectionId, out indices) || indices == null)
+                {
+                    indices = new Pool<int>();
+                    __nodeIndices[node.connectionId] = indices;
+                }
+
+                node.connectionIndex = indices.nextIndex;
+
+                indices.Add(player._index);
+            }
+
             player._isLocalPlayer = false;
             player._type = type;
 
-            if (__nodes == null)
-                __nodes = new Pool<Node>();
-
-            player._index = (short)__nodes.nextIndex;
             player._host = this;
 
             NetworkWriter writer = __GetWriter();
@@ -1093,7 +1196,19 @@ namespace ZG.Network
             writer.Write(false);
             temp.count = writer.Position;
             temp.bytes = writer.AsArray();
-            room.Send((short)HostMessageType.Register, temp, null);
+            Network.Node instance;
+            foreach (KeyValuePair<int, Network.Node> pair in room)
+            {
+                instance = pair.Value;
+                if (instance == null || instance == player)
+                    continue;
+
+                if (GetNode(player._index, out node))
+                    continue;
+
+                if (node.connectionId >= 0)
+                    NetworkServer.SendToClient(node.connectionId, (short)HostMessageType.Register, temp);
+            }
             
             IEnumerable<int> neighborRoomIndices = room.neighborRoomIndices;
             if (neighborRoomIndices != null)
@@ -1108,11 +1223,10 @@ namespace ZG.Network
 
             if (room.count > 0)
             {
-                Network.Node instance;
                 foreach (KeyValuePair<int, Network.Node> pair in room)
                 {
                     instance = pair.Value;
-                    if (instance == null)
+                    if (instance == null || instance == player)
                         continue;
 
                     temp.index = instance._index;
@@ -1129,7 +1243,6 @@ namespace ZG.Network
 
             if (neighborRoomIndices != null)
             {
-                Network.Node instance;
                 Room neighborRoom;
                 foreach (int neighborRoomIndex in neighborRoomIndices)
                 {
@@ -1154,22 +1267,6 @@ namespace ZG.Network
                     }
                 }
             }
-
-            node.playerIndex = room.Add(player);
-
-            if (__nodeIndices == null)
-                __nodeIndices = new Dictionary<int, Pool<int>>();
-
-            Pool<int> indices;
-            if (!__nodeIndices.TryGetValue(node.connectionId, out indices) || indices == null)
-            {
-                indices = new Pool<int>();
-                __nodeIndices[node.connectionId] = indices;
-            }
-
-            node.connectionIndex = indices.nextIndex;
-
-            indices.Add(__nodes.Add(node));
 
             if (player._onCreate != null)
                 player._onCreate();

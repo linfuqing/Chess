@@ -10,15 +10,11 @@ namespace ZG.Network.Lobby
 {
     public class Client : Network.Client
     {
-        public event Action onReady;
-        public event Action onNotReady;
-        public event Action onLoad;
-        public event Action onUnload;
+        public event Action<int, int> onReady;
+        public event Action<int, int> onNotReady;
 
-        public int minPlayers;
-        private int __readyCount;
-        private int __loadCount;
-        private bool __isOnline;
+        private Dictionary<int, int> __roomIndices;
+        private Dictionary<int, Room> __rooms;
 
         public override void Shutdown()
         {
@@ -34,149 +30,8 @@ namespace ZG.Network.Lobby
             onRegistered += __OnRegistered;
 
             base.Create();
-        }
 
-        private void __RegisterHandlers(Network.Node player)
-        {
-            if (player == null)
-                return;
-
-            Node temp = player as Node;
-            player.RegisterHandler((short)HostMessageHandle.Ready, delegate (NetworkReader reader)
-            {
-                if (temp != null)
-                {
-                    if (temp._isReady)
-                        return;
-
-                    temp._isReady = true;
-
-                    if (temp._onReady != null)
-                        temp._onReady();
-                }
-
-                ++__readyCount;
-                if (__readyCount >= minPlayers)
-                {
-                    if (!__isOnline)
-                    {
-                        __isOnline = true;
-
-                        _Load();
-                    }
-
-                    if (onReady != null)
-                        onReady();
-                }
-            });
-
-            player.RegisterHandler((short)HostMessageHandle.NotReady, delegate (NetworkReader reader)
-            {
-#if DEBUG
-                if (__readyCount <= 0)
-                    throw new InvalidOperationException();
-#endif
-                
-                if (temp != null)
-                {
-                    if (!temp._isReady)
-                        return;
-
-                    temp._isReady = false;
-
-                    if (temp._onNotReady != null)
-                        temp._onNotReady();
-                }
-
-                --__readyCount;
-
-                if (__readyCount < 1)
-                {
-                    if (__isOnline)
-                    {
-                        __isOnline = false;
-
-                        _Unload();
-                    }
-
-                    if (onNotReady != null)
-                        onNotReady();
-                }
-            });
-
-            player.RegisterHandler((short)HostMessageHandle.Load, delegate (NetworkReader reader)
-            {
-                if (temp != null)
-                {
-                    if (temp._isLoad)
-                    {
-                        Debug.LogError("Load Fail.");
-
-                        return;
-                    }
-
-                    temp._isLoad = true;
-
-                    if (temp._onLoad != null)
-                        temp._onLoad();
-                }
-
-                ++__loadCount;
-                if (__loadCount >= __readyCount)
-                {
-                    if (onLoad != null)
-                        onLoad();
-                }
-            });
-
-            player.RegisterHandler((short)HostMessageHandle.Unload, delegate (NetworkReader reader)
-            {
-                if (temp != null)
-                {
-                    if (!temp._isLoad)
-                    {
-                        Debug.LogError("Unload Fail.");
-
-                        return;
-                    }
-
-                    temp._isLoad = false;
-
-                    if (temp._onUnload != null)
-                        temp._onUnload();
-                }
-
-                --__loadCount;
-                if (__loadCount < 1)
-                {
-                    if (onUnload != null)
-                        onUnload();
-                }
-            });
-        }
-
-        protected void _Online()
-        {
-            Network.Node localPlayer = base.localPlayer;
-            if (localPlayer is UnityEngine.Object)
-                localPlayer.Rpc((short)HostMessageHandle.Load, new EmptyMessage());
-        }
-
-        protected void _Offline()
-        {
-            Network.Node localPlayer = base.localPlayer;
-            if (localPlayer is UnityEngine.Object)
-                localPlayer.Rpc((short)HostMessageHandle.Unload, new EmptyMessage());
-        }
-
-        protected virtual void _Load()
-        {
-            _Online();
-        }
-
-        protected virtual void _Unload()
-        {
-            _Offline();
+            RegisterHandler((short)HostMessageType.RoomInfo, __OnRoomInfo);
         }
 
         private void __OnDisconnect(NetworkMessage message)
@@ -186,56 +41,139 @@ namespace ZG.Network.Lobby
 
         private void __OnUnregistered(Network.Node player)
         {
-            if (!(player is Node))
+            if (player == null || __roomIndices == null)
                 return;
 
+            int roomIndex;
+            if (!__roomIndices.TryGetValue(player.index, out roomIndex))
+                return;
+
+            int index = player.index;
+            __roomIndices.Remove(index);
+
+            if (__rooms == null)
+                return;
+
+            Room room;
+            if (!__rooms.TryGetValue(roomIndex, out room) || room == null)
+                return;
+            
             Node temp = player as Node;
-            if (temp._isReady)
+            while(room.NotReady(index))
             {
-                temp._isReady = false;
-                if (temp._onNotReady != null)
-                    temp._onNotReady();
-
-                --__readyCount;
-                if (__readyCount < 1)
+                if(temp != null)
                 {
-                    if (onNotReady != null)
-                        onNotReady();
+                    -- temp._count;
 
-                    if (__isOnline)
-                    {
-                        __isOnline = false;
-
-                        _Unload();
-                    }
-                }
-            }
-
-            if (temp._isLoad)
-            {
-                temp._isLoad = false;
-                if (temp._onUnload != null)
-                    temp._onUnload();
-
-                --__loadCount;
-                if (__loadCount < 1)
-                {
-                    if (onUnload != null)
-                        onUnload();
+                    if (temp._onNotReady != null)
+                        temp._onNotReady();
                 }
             }
         }
 
         private void __OnRegistered(Network.Node player)
         {
-            __RegisterHandlers(player);
+            if (player == null)
+                return;
 
-            if (player is Node)
+            int index = player.index;
+            Node temp = player as Node;
+            player.RegisterHandler((short)HostMessageHandle.Ready, delegate (NetworkReader reader)
             {
-                Action onStart = ((Node)player)._onStart;
-                if (onStart != null)
-                    onStart();
-            }
+                if(__roomIndices != null && __rooms != null)
+                {
+                    int roomIndex;
+                    if(__roomIndices.TryGetValue(index, out roomIndex))
+                    {
+                        Room room;
+                        if(__rooms.TryGetValue(roomIndex, out room) && room != null)
+                        {
+                            int count = room.count + 1;
+                            if (room.Ready(index))
+                            {
+                                if (count == room.count)
+                                {
+                                    if (onReady != null)
+                                        onReady(roomIndex, count);
+                                }
+                            }
+                            else
+                            {
+                                Debug.LogError("Ready Fail:" + index);
+
+                                return;
+                            }
+                        }
+                    }
+                }
+
+                if (temp != null)
+                {
+                    ++temp._count;
+
+                    if (temp._onReady != null)
+                        temp._onReady();
+                }
+            });
+
+            player.RegisterHandler((short)HostMessageHandle.NotReady, delegate (NetworkReader reader)
+            {
+                if (__roomIndices != null && __rooms != null)
+                {
+                    int roomIndex;
+                    if (__roomIndices.TryGetValue(index, out roomIndex))
+                    {
+                        Room room;
+                        if (__rooms.TryGetValue(roomIndex, out room) && room != null)
+                        {
+                            int count = room.count - 1;
+                            if (room.NotReady(index))
+                            {
+                                if (count == room.count)
+                                {
+                                    if (onNotReady != null)
+                                        onNotReady(roomIndex, count);
+                                }
+                            }
+                            else
+                            {
+                                Debug.LogError("Not Ready Fail:" + index);
+
+                                return;
+                            }
+                        }
+                    }
+                }
+
+                if (temp != null)
+                {
+                    --temp._count;
+
+                    if (temp._onNotReady != null)
+                        temp._onNotReady();
+                }
+            });
+        }
+
+        private void __OnRoomInfo(NetworkMessage message)
+        {
+            RoomMessage roomMessage = message == null ? null : message.ReadMessage<RoomMessage>();
+            if (roomMessage == null)
+                return;
+
+            if (__roomIndices == null)
+                __roomIndices = new Dictionary<int, int>();
+
+            __roomIndices[roomMessage.index] = roomMessage.roomIndex;
+
+            if (__rooms == null)
+                __rooms = new Dictionary<int, Room>();
+
+            Room room;
+            if (__rooms.TryGetValue(roomMessage.roomIndex, out room) && room != null)
+                room.length = roomMessage.roomLength;
+            else
+                __rooms.Add(roomMessage.roomIndex, new Room(roomMessage.roomLength));
         }
         
         private void __Clear()
@@ -244,10 +182,11 @@ namespace ZG.Network.Lobby
             onUnregistered -= __OnUnregistered;
             onRegistered -= __OnRegistered;
 
-            __readyCount = 0;
-            __loadCount = 0;
+            if (__roomIndices != null)
+                __roomIndices.Clear();
 
-            __isOnline = false;
+            if (__rooms != null)
+                __rooms.Clear();
         }
     }
 }

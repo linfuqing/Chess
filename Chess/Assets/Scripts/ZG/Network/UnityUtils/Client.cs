@@ -157,7 +157,6 @@ namespace ZG.Network
 
             if (__client != null)
             {
-                //__client.Disconnect();
                 __client.Shutdown();
                 __client = null;
             }
@@ -253,31 +252,45 @@ namespace ZG.Network
                 return;
             }
 
-            NetworkReader reader = new NetworkReader(temp.bytes);
-            short type = reader.ReadInt16();
-            Node instance = prefabs == null || type < 0 || type >= prefabs.Length ? null : prefabs[type];
-            instance = instance == null ? null : Instantiate(instance);
-
-#if DEBUG
-            if (instance == null)
-                throw new InvalidOperationException();
-#endif
-
-            instance._isLocalPlayer = reader.ReadBoolean();
-            instance._type = type;
-            instance._index = temp.index;
-            instance._host = this;
 
             if (__nodes == null)
                 __nodes = new System.Collections.Generic.Dictionary<int, Node>();
 
-            __nodes.Add(temp.index, instance);
+            Node instance;
+            if (__nodes.TryGetValue(temp.index, out instance) && instance != null)
+            {
+                if(!instance._isLocalPlayer)
+                {
+                    NetworkReader reader = new NetworkReader(temp.bytes);
+                    instance._type = reader.ReadInt16();
+                    instance._isLocalPlayer = reader.ReadBoolean();
+                }
+            }
+            else
+            {
+                NetworkReader reader = new NetworkReader(temp.bytes);
+                short type = reader.ReadInt16();
+                instance = prefabs == null || type < 0 || type >= prefabs.Length ? null : prefabs[type];
+                instance = instance == null ? null : Instantiate(instance);
 
-            if (instance._onCreate != null)
-                instance._onCreate();
+#if DEBUG
+                if (instance == null)
+                    throw new InvalidOperationException();
+#endif
 
-            if (onRegistered != null)
-                onRegistered(instance);
+                instance._isLocalPlayer = reader.ReadBoolean();
+                instance._type = type;
+                instance._index = temp.index;
+                instance._host = this;
+
+                __nodes[temp.index] = instance;
+
+                if (instance._onCreate != null)
+                    instance._onCreate();
+
+                if (onRegistered != null)
+                    onRegistered(instance);
+            }
         }
 
         private void __OnUnregistered(NetworkMessage message)
@@ -382,11 +395,6 @@ namespace ZG.Network
             }
 
             return __message;
-        }
-
-        void OnDestroy()
-        {
-            Shutdown();
         }
     }
 }

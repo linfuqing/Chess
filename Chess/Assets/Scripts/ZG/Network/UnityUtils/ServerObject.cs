@@ -87,8 +87,7 @@ namespace ZG.Network
                 if (host == null)
                     return;
                 
-                bool result = host.Move(__node.index, roomIndex, __Add, __Remove);
-                Assert.IsTrue(result);
+                host.Move(__node.index, value, __Add, __Remove);
             }
         }
         
@@ -197,12 +196,14 @@ namespace ZG.Network
                     {
                         onInit = invocation as Func<NetworkWriter, short>;
                         if (onInit != null)
+                        {
                             host.Send(
-                                temp.connectionId, 
-                                node.index, 
-                                onInit(instance.RpcStart()), 
-                                __writer.AsArray(), 
-                                __writer.Position);
+                                temp.connectionId,
+                                node.index,
+                                onInit(instance.RpcStart()),
+                                instance.__writer.AsArray(),
+                                instance.__writer.Position);
+                        }
                     }
                 }
             }
@@ -231,7 +232,7 @@ namespace ZG.Network
                                 host.Send(
                                     temp.connectionId,
                                     index, 
-                                    onInit(instance.RpcStart()), 
+                                    onInit(RpcStart()), 
                                     __writer.AsArray(), 
                                     __writer.Position);
                         }

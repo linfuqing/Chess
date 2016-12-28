@@ -5,27 +5,10 @@ namespace ZG.Network.Lobby
 {
     public class Node : Network.Node
     {
-        internal Action _onStart;
         internal Action _onReady;
         internal Action _onNotReady;
-        internal Action _onLoad;
-        internal Action _onUnload;
-        internal bool _isReady;
-        internal bool _isLoad;
-
-        public event Action onStart
-        {
-            add
-            {
-                _onStart += value;
-            }
-
-            remove
-            {
-                _onStart -= value;
-            }
-        }
-
+        internal int _count;
+        
         public event Action onReady
         {
             add
@@ -51,46 +34,15 @@ namespace ZG.Network.Lobby
                 _onNotReady -= value;
             }
         }
-
-        public event Action onLoad
-        {
-            add
-            {
-                _onLoad += value;
-            }
-
-            remove
-            {
-                _onLoad -= value;
-            }
-        }
-
-        public event Action onUnload
-        {
-            add
-            {
-                _onUnload += value;
-            }
-
-            remove
-            {
-                _onUnload -= value;
-            }
-        }
-
-        public bool isReady
+        
+        public int count
         {
             get
             {
-                return _isReady;
+                return _count;
             }
         }
-
-        public void SendReadyMessage()
-        {
-            Rpc(_isReady ? (short)HostMessageHandle.NotReady : (short)HostMessageHandle.Ready, new ReadyMessage());
-        }
-
+        
         public override bool CopyFrom(Network.Node node)
         {
             if (!base.CopyFrom(node))
@@ -100,8 +52,7 @@ namespace ZG.Network.Lobby
             if (temp == null)
                 return false;
             
-            _isReady = temp._isReady;
-            _isLoad = temp._isLoad;
+            _count = temp._count;
 
             return true;
         }

@@ -8,57 +8,51 @@ namespace ZG.Network.Lobby
 {
     public class Server : Network.Server
     {
-        private struct Room
-        {
-            public int readyCount;
-            public int loadCount;
-            public bool isLoaded;
-        }
-
-        public event Action<int> onReady;
-        public event Action<int> onNotReady;
-        public event Action<int> onLoad;
-        public event Action<int> onUnload;
-
-        public int minPlayers;
-        public int maxPlayers;
+        public event Action<int, int> onReady;
+        public event Action<int, int> onNotReady;
 
         private Pool<Room> __rooms;
 
-        public bool IsRoomLoaded(int index)
+        public int GetRoomCount(int index)
         {
             if (__rooms == null)
-                return false;
+                return 0;
 
             Room room;
-            if (!__rooms.TryGetValue(index, out room))
-                return false;
+            if (!__rooms.TryGetValue(index, out room) || room == null)
+                return 0;
 
-            return room.isLoaded;
-        }
-
-        public bool CheckRoom(int index)
-        {
-            return !IsRoomLoaded(index) && GetCount(index) < maxPlayers;
+            return room.count;
         }
 
         public void Awake()
         {
             onRegistered += __OnRegistered;
-            onUnregistered += __OnUnregistered;
         }
 
-        protected virtual bool _GetInfo(NetworkReader reader, int connectionId, out short type, out int roomIndex)
+        protected virtual bool _GetRoomInfo(NetworkReader reader, out int length)
+        {
+            length = 0;
+
+            return true;
+        }
+
+        protected virtual bool _GetPlayerInfo(NetworkReader reader, int connectionId, out short type, out int roomIndex, out int playerIndex)
         {
             type = 0;
             roomIndex = 0;
+            playerIndex = 0;
             if (__rooms != null)
             {
                 foreach (KeyValuePair<int, Room> pair in ((IEnumerable<KeyValuePair<int, Room>>)__rooms))
                 {
                     roomIndex = pair.Key;
-                    if (CheckRoom(roomIndex))
+                    if (GetRoomCount(roomIndex) < 1)
+                    {
+                        playerIndex = GetRoomNextIndex(roomIndex);
+
                         return true;
+                    }
                 }
 
                 roomIndex = __rooms.nextIndex;
@@ -67,9 +61,9 @@ namespace ZG.Network.Lobby
             return true;
         }
 
-        protected override bool _Register(NetworkReader reader, int connectionId, out short type, out int roomIndex)
+        protected override bool _Register(NetworkReader reader, int connectionId, out short type, out int roomIndex, out int playerIndex)
         {
-            if (!_GetInfo(reader, connectionId, out type, out roomIndex))
+            if (!_GetPlayerInfo(reader, connectionId, out type, out roomIndex, out playerIndex))
                 return false;
 
             if (__rooms == null)
@@ -78,9 +72,46 @@ namespace ZG.Network.Lobby
             Room room;
             if (!__rooms.TryGetValue(roomIndex, out room))
             {
-                room = new Room();
+                int length;
+                if (_GetRoomInfo(reader, out length))
+                {
+                    room = new Room(length);
 
-                __rooms.Insert(roomIndex, room);
+                    __rooms.Insert(playerIndex, room);
+                }
+                else
+                    return false;
+            }
+
+            if (connectionId >= 0)
+                Send(connectionId, (short)HostMessageType.RoomInfo, new RoomMessage((short)nextNodeIndex, (short)roomIndex, (short)room.length));
+            
+            return true;
+        }
+
+        protected override bool _Unregister(int index)
+        {
+            Node node;
+            if (!GetNode(index, out node))
+                return false;
+
+            if (__rooms == null)
+                return false;
+
+            Room room;
+            if (!__rooms.TryGetValue(node.roomIndex, out room) || room == null)
+                return false;
+
+            Lobby.Node temp = Get(index) as Lobby.Node;
+            while (room.NotReady(index))
+            {
+                if (temp != null)
+                {
+                    --temp._count;
+
+                    if (temp._onNotReady != null)
+                        temp._onNotReady();
+                }
             }
 
             return true;
@@ -91,43 +122,40 @@ namespace ZG.Network.Lobby
             if (player == null)
                 return;
 
+            int index = player.index;
             Lobby.Node temp = player as Lobby.Node;
             Node node;
             player.RegisterHandler((short)HostMessageHandle.Ready, delegate (NetworkReader reader)
             {
-                if (player != null)
+                if (GetNode(index, out node))
                 {
-                    player.Rpc((short)HostMessageHandle.Ready, new ReadyMessage());
-                    
-                    if (GetNode(player.index, out node))
+                    Room room;
+                    if (__rooms.TryGetValue(node.roomIndex, out room) && room != null)
                     {
-                        Room room;
-                        if (__rooms.TryGetValue(node.roomIndex, out room))
+                        int count = room.count + 1;
+                        if (room.Ready(node.playerIndex))
                         {
-                            ++room.readyCount;
-                            if (room.readyCount >= minPlayers)
+                            if(player != null)
+                                player.Rpc((short)HostMessageHandle.Ready, new ReadyMessage());
+
+                            if (count == room.count)
                             {
-                                room.isLoaded = true;
-
                                 if (onReady != null)
-                                    onReady(node.roomIndex);
+                                    onReady(node.roomIndex, count);
                             }
+                        }
+                        else
+                        {
+                            Debug.LogError("Ready Fail:" + index);
 
-                            __rooms.Insert(node.roomIndex, room);
+                            return;
                         }
                     }
                 }
-                
+
                 if (temp != null)
                 {
-                    if (temp._isReady)
-                    {
-                        Debug.LogError("Ready Fail.");
-
-                        return;
-                    }
-
-                    temp._isReady = true;
+                    ++temp._count;
 
                     if (temp._onReady != null)
                         temp._onReady();
@@ -136,132 +164,41 @@ namespace ZG.Network.Lobby
 
             player.RegisterHandler((short)HostMessageHandle.NotReady, delegate(NetworkReader reader)
             {
-                if (player != null)
+                if (GetNode(player.index, out node))
                 {
-                    player.Rpc((short)HostMessageHandle.NotReady, new ReadyMessage());
-                    
-                    if (GetNode(player.index, out node))
+                    Room room;
+                    if (__rooms.TryGetValue(node.roomIndex, out room) && room != null)
                     {
-                        Room room;
-                        if (__rooms.TryGetValue(node.roomIndex, out room))
+                        int count = room.count - 1;
+                        if (room.NotReady(index))
                         {
-                            --room.readyCount;
-                            if (room.readyCount < 1)
+                            if(player != null)
+                                player.Rpc((short)HostMessageHandle.NotReady, new ReadyMessage());
+
+                            if (count == room.count)
                             {
-                                room.isLoaded = false;
-
                                 if (onNotReady != null)
-                                    onNotReady(node.roomIndex);
+                                    onNotReady(node.roomIndex, count);
                             }
+                        }
+                        else
+                        {
+                            Debug.LogError("Not Ready Fail:" + index);
 
-                            __rooms.Insert(node.roomIndex, room);
+                            return;
                         }
                     }
                 }
                 
                 if (temp != null)
                 {
-                    if (!temp._isReady)
-                    {
-                        Debug.LogError("Not Ready Fail.");
-
-                        return;
-                    }
-
-                    temp._isReady = false;
+                    --temp._count;
 
                     if (temp._onNotReady != null)
                         temp._onNotReady();
                 }
             });
-
-            player.RegisterHandler((short)HostMessageHandle.Load, delegate(NetworkReader reader)
-            {
-                if (temp != null)
-                {
-                    if (temp._isLoad)
-                    {
-                        Debug.LogError("Load Fail.");
-
-                        return;
-                    }
-
-                    temp._isLoad = true;
-
-                    if (temp._onLoad != null)
-                        temp._onLoad();
-                }
-
-                if (player != null)
-                {
-                    player.Rpc((short)HostMessageHandle.Load, new EmptyMessage());
-                    
-                    if (GetNode(player.index, out node))
-                    {
-                        Room room;
-                        if (__rooms.TryGetValue(node.roomIndex, out room))
-                        {
-                            ++room.loadCount;
-
-                            __rooms.Insert(node.roomIndex, room);
-
-                            if (room.loadCount >= GetCount(node.roomIndex))
-                            {
-                                if (onLoad != null)
-                                    onLoad(node.roomIndex);
-                            }
-                        }
-                    }
-                }
-            });
-
-            player.RegisterHandler((short)HostMessageHandle.Unload, delegate (NetworkReader reader)
-            {
-                if (temp != null)
-                {
-                    if (!temp._isLoad)
-                    {
-                        Debug.LogError("Unload Fail.");
-
-                        return;
-                    }
-
-                    temp._isLoad = false;
-
-                    if (temp._onUnload != null)
-                        temp._onUnload();
-                }
-
-                if (player != null)
-                {
-                    player.Rpc((short)HostMessageHandle.Unload, new EmptyMessage());
-                    
-                    if (GetNode(player.index, out node))
-                    {
-                        Room room;
-                        if (__rooms.TryGetValue(node.roomIndex, out room))
-                        {
-                            --room.loadCount;
-
-                            __rooms.Insert(node.roomIndex, room);
-
-                            if (room.loadCount < 1)
-                            {
-                                if (onUnload != null)
-                                    onUnload(node.roomIndex);
-                            }
-                        }
-                    }
-                }
-            });
-
-            if (player is Lobby.Node)
-            {
-                Action onStart = ((Lobby.Node)player)._onStart;
-                if (onStart != null)
-                    onStart();
-            }
-
+            
             if (GetNode(player.index, out node))
             {
                 IEnumerable<KeyValuePair<int, Network.Node>> room = GetRoom(node.roomIndex);
@@ -272,128 +209,18 @@ namespace ZG.Network.Lobby
                     writer.Write(new ReadyMessage());
                     HostMessage hostMessage = new HostMessage(-1, writer.Position, writer.AsArray());
                     Lobby.Node instance;
+                    int i;
                     foreach (KeyValuePair<int, Network.Node> pair in room)
                     {
                         instance = pair.Value as Lobby.Node;
-                        if ((instance is Lobby.Node) && instance._isReady)
+                        if (instance != null)
                         {
                             hostMessage.index = instance.index;
-                            NetworkServer.SendToClient(node.connectionId, (short)HostMessageType.Rpc, hostMessage);
-                        }
-                    }
-
-                    writer.SeekZero();
-                    writer.Write((short)HostMessageHandle.Load);
-                    writer.Write(new EmptyMessage());
-                    hostMessage.bytes = writer.ToArray();
-                    foreach (KeyValuePair<int, Network.Node> pair in room)
-                    {
-                        instance = pair.Value as Lobby.Node;
-                        if ((instance is Lobby.Node) && instance._isLoad)
-                        {
-                            hostMessage.index = instance.index;
-                            NetworkServer.SendToClient(node.connectionId, (short)HostMessageType.Rpc, hostMessage);
+                            for (i = 0; i < instance._count; ++i)
+                                NetworkServer.SendToClient(node.connectionId, (short)Network.HostMessageType.Rpc, hostMessage);
                         }
                     }
                 }
-            }
-        }
-
-        private void __OnUnregistered(Network.Node player)
-        {
-            if (!(player is Network.Node))
-                return;
-
-            int index = player.index;
-            Node node;
-            if (GetNode(index, out node))
-            {
-                //bool isReady = false, isLoad = false;
-                if (__rooms != null)
-                {
-                    Lobby.Node temp;
-                    Room room;
-                    if (__rooms.TryGetValue(node.roomIndex, out room))
-                    {
-                        if (player is Lobby.Node)
-                        {
-                            temp = (Lobby.Node)player;
-                            if (temp._isReady)
-                            {
-                                temp._isReady = false;
-
-                                if (temp._onNotReady != null)
-                                    temp._onNotReady();
-
-                                --room.readyCount;
-
-                                if (room.readyCount < 1)
-                                    room.isLoaded = false;
-                            }
-
-                            if (temp._isLoad)
-                            {
-                                temp._isLoad = false;
-
-                                if (temp._onUnload != null)
-                                    temp._onUnload();
-
-                                --room.loadCount;
-                                if (room.loadCount < 1)
-                                {
-                                    if (onUnload != null)
-                                        onUnload(node.roomIndex);
-                                }
-                            }
-                        }
-
-                        __rooms.Insert(node.roomIndex, room);
-                    }
-                }
-
-                /*if (isReady)
-                {
-                    IEnumerable<KeyValuePair<int, MasterBehaviour>> room = GetRoom(node.roomIndex);
-                    if (room != null)
-                    {
-                        NetworkWriter writer = new NetworkWriter();
-                        writer.Write((short)MasterLobbyMessageHandle.NotReady);
-                        writer.Write(new ReadyMessage());
-                        MasterMessage masterMessage = new MasterMessage(index, writer.ToArray());
-                        MasterBehaviour temp;
-                        foreach (KeyValuePair<int, MasterBehaviour> pair in room)
-                        {
-                            temp = pair.Value;
-                            if (temp != behaviour && temp is MasterBehaviour)
-                            {
-                                if (GetNode(temp.index, out node))
-                                    NetworkServer.SendToClient(node.connectionId, (short)MasterMessageType.Rpc, masterMessage);
-                            }
-                        }
-                    }
-                }
-
-                if (isLoad)
-                {
-                    IEnumerable<KeyValuePair<int, MasterBehaviour>> room = GetRoom(node.roomIndex);
-                    if (room != null)
-                    {
-                        NetworkWriter writer = new NetworkWriter();
-                        writer.Write((short)MasterLobbyMessageHandle.Unload);
-                        writer.Write(new EmptyMessage());
-                        MasterMessage masterMessage = new MasterMessage(index, writer.ToArray());
-                        MasterBehaviour temp;
-                        foreach (KeyValuePair<int, MasterBehaviour> pair in room)
-                        {
-                            temp = pair.Value;
-                            if (temp != behaviour && temp is MasterBehaviour)
-                            {
-                                if (GetNode(temp.index, out node))
-                                    NetworkServer.SendToClient(node.connectionId, (short)MasterMessageType.Rpc, masterMessage);
-                            }
-                        }
-                    }
-                }*/
             }
         }
     }

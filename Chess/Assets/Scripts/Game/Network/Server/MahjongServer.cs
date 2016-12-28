@@ -348,19 +348,27 @@ public class MahjongServer : Server
         private void __Break()
         {
             int i, j, count;
+            Node node;
             Player player;
             MahjongServerPlayer instance;
-            ZG.Network.Lobby.Node node;
+            ZG.Network.Server host;
+            ZG.Network.Lobby.Node temp;
             for(i = 0; i < 4; ++i)
             {
                 player = __mahjong.Get(index) as Player;
                 instance = player == null ? null : player.instance;
-                node = instance == null ? null : instance.node as ZG.Network.Lobby.Node;
-                if (node != null)
+                temp = instance == null ? null : instance.node as ZG.Network.Lobby.Node;
+                if (temp != null)
                 {
-                    count = node.count;
-                    for(j = 0; j < count; ++j)
-                        node.NotReady();
+                    host = instance.host;
+                    if (host != null && host.GetNode(temp.index, out node) && node.connectionId < 0)
+                        host.Unregister(temp.index);
+                    else
+                    {
+                        count = temp.count;
+                        for (j = 0; j < count; ++j)
+                            temp.NotReady();
+                    }
                 }
             }
         }

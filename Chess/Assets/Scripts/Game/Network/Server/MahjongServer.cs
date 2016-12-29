@@ -13,6 +13,12 @@ public class MahjongServer : Server
     {
         public string roomName;
         public int index;
+
+        public Player(string roomName, int index)
+        {
+            this.roomName = roomName;
+            this.index = index;
+        }
     }
 
     private class Room
@@ -285,9 +291,7 @@ public class MahjongServer : Server
                                     {
                                         __isRunning = false;
 
-                                        __Break();
-
-                                        yield break;
+                                        break;
                                     }
 
                                     if (ruleType != Mahjong.RuleType.Unknown)
@@ -318,9 +322,7 @@ public class MahjongServer : Server
                             {
                                 __isRunning = false;
 
-                                __Break();
-
-                                yield break;
+                                break;
                             }
 
                             if (ruleType != Mahjong.RuleType.Unknown)
@@ -340,9 +342,21 @@ public class MahjongServer : Server
                             break;
                     }
                 }
+
+                if(!__isRunning)
+                {
+                    __Break();
+
+                    break;
+                }
                 
                 yield return new WaitForSeconds(2.0f);
             }
+        }
+
+        public void Break()
+        {
+            __isRunning = false;
         }
 
         private void __Break()
@@ -499,6 +513,8 @@ public class MahjongServer : Server
 
                                 if (GetCount(room.index) < 1)
                                 {
+                                    room.Break();
+
                                     if (__roomNames != null)
                                         __roomNames.RemoveAt(room.index);
 
@@ -561,6 +577,26 @@ public class MahjongServer : Server
 
         if(count == 1)
             StartCoroutine(room.Run());
+    }
+
+    private void __OnPlayer(NetworkMessage message)
+    {
+        NetworkConnection connection = message == null ? null : message.conn;
+        if (connection == null)
+            return;
+
+        NameMessage nameMessage = message.ReadMessage<NameMessage>();
+        if (nameMessage == null)
+            return;
+
+        string roomName;
+        Player player;
+        if (__playerMap.TryGetValue(nameMessage.name, out player))
+            roomName = player.roomName;
+        else
+            roomName = string.Empty;
+
+        Send(connection.connectionId, (short)MahjongNetworkMessageType.Player, new NameMessage(roomName));
     }
 
     private void __OnRoom(NetworkMessage message)

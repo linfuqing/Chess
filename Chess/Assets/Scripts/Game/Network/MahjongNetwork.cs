@@ -4,7 +4,8 @@ using UnityEngine.Networking;
 
 public enum MahjongNetworkMessageType
 {
-    Room = 300,
+    Player = 300,
+    Room,
     Shuffle, 
     TileCodes,
     RuleNodes

@@ -161,7 +161,7 @@ namespace ZG.Network
         {
             ServerObject instance = node == null ? null : node.GetComponent<ServerObject>();
             Assert.IsNotNull(instance);
-            if (instance == null)
+            if (instance == null || instance == this)
                 return;
 
             Server host = __node == null ? null : __node.host as Server;
@@ -245,7 +245,7 @@ namespace ZG.Network
         {
             ServerObject instance = node == null ? null : node.GetComponent<ServerObject>();
             Assert.IsNotNull(instance);
-            if (instance == null)
+            if (instance == null || instance == this)
                 return;
 
             Server host = __node == null ? null : __node.host as Server;

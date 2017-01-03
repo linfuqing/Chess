@@ -417,40 +417,41 @@ namespace ZG.Network
                 Node node;
                 if (__nodes.TryGetValue(index, out node))
                 {
-                    if (_Unregister(index))
+                    Room room;
+                    if (__rooms.TryGetValue(node.roomIndex, out room))
                     {
-                        Room room;
-                        if (__rooms.TryGetValue(node.roomIndex, out room))
+                        Network.Node player = room == null ? null : room.Get(node.playerIndex);
+                        if (onUnregistered != null)
+                            onUnregistered(player);
+
+                        if (player != null)
                         {
-                            Network.Node player = room == null ? null : room.Get(node.playerIndex);
-                            if (onUnregistered != null)
-                                onUnregistered(player);
+                            if (player._onDestroy != null)
+                                player._onDestroy();
+                        }
 
-                            if (player is Network.Node)
+                        if (__nodeIndices != null)
+                        {
+                            Pool<int> indices;
+                            if (__nodeIndices.TryGetValue(node.connectionId, out indices) && indices != null)
                             {
-                                if (player._onDestroy != null)
-                                    player._onDestroy();
+                                if (indices.RemoveAt(node.connectionIndex))
+                                {
+                                    if (indices.count < 1)
+                                        __nodeIndices.Remove(node.connectionId);
+                                }
+                                else
+                                    result = false;
                             }
+                        }
 
+                        if (_Unregister(index))
+                        {
                             if (player != null)
                                 Destroy(player.gameObject);
 
                             result = room != null && room.Delete(node.playerIndex) && result;
 
-                            if (__nodeIndices != null)
-                            {
-                                Pool<int> indices;
-                                if (__nodeIndices.TryGetValue(node.connectionId, out indices) && indices != null)
-                                {
-                                    if (indices.RemoveAt(node.connectionIndex))
-                                    {
-                                        if (indices.count < 1)
-                                            __nodeIndices.Remove(node.connectionId);
-                                    }
-                                    else
-                                        result = false;
-                                }
-                            }
 
                             HostMessage message = __GetMessage(index, 0, null);
                             if (room == null || room.count < 1)
@@ -467,31 +468,19 @@ namespace ZG.Network
                                         room.Send((short)HostMessageType.Unregister, message, null);
                                 }
                             }
+
+                            result = __nodes.RemoveAt(index) && result;
                         }
                         else
-                            result = false;
-
-                        result = __nodes.RemoveAt(index) && result;
-                    }
-                    else if (__nodeIndices != null)
-                    {
-                        Pool<int> indices;
-                        if (__nodeIndices.TryGetValue(node.connectionId, out indices) && indices != null)
                         {
-                            if (indices.RemoveAt(node.connectionIndex))
-                            {
-                                if (indices.count < 1)
-                                    __nodeIndices.Remove(node.connectionId);
-                                    
-                                node.connectionId = -1;
-                                node.connectionIndex = -1;
+                            node.connectionId = -1;
+                            node.connectionIndex = -1;
 
-                                __nodes.Insert(index, node);
-                            }
-                            else
-                                result = false;
+                            __nodes.Insert(index, node);
                         }
                     }
+                    else
+                        result = false;
                 }
                 else
                     result = false;
@@ -1137,7 +1126,7 @@ namespace ZG.Network
                 {
                     connection.Send((short)HostMessageType.Register, __GetMessage(-1, 0, null));
 
-                    Debug.LogError("Register Fail.");
+                    Debug.LogError("Register Fail: Instantiate Error.");
 
                     return;
                 }
@@ -1165,6 +1154,16 @@ namespace ZG.Network
             }
             else
             {
+                Node temp;
+                if (__nodes == null || !__nodes.TryGetValue(player._index, out temp) || temp.connectionId >= 0)
+                {
+                    connection.Send((short)HostMessageType.Register, __GetMessage(-1, 0, null));
+
+                    Debug.LogError("Register Fail: Index Conflict.");
+
+                    return;
+                }
+
                 if (__nodeIndices == null)
                     __nodeIndices = new Dictionary<int, Pool<int>>();
 
@@ -1177,6 +1176,8 @@ namespace ZG.Network
 
                 node.connectionIndex = indices.nextIndex;
 
+                __nodes.Insert(player._index, node);
+
                 indices.Add(player._index);
             }
 
@@ -1188,14 +1189,14 @@ namespace ZG.Network
             NetworkWriter writer = __GetWriter();
             writer.Write(type);
             writer.Write(true);
-            HostMessage temp = __GetMessage(player._index, writer.Position, writer.AsArray());
-            connection.Send((short)HostMessageType.Register, temp);
+            HostMessage hostMessage = __GetMessage(player._index, writer.Position, writer.AsArray());
+            connection.Send((short)HostMessageType.Register, hostMessage);
 
             writer.SeekZero();
             writer.Write(type);
             writer.Write(false);
-            temp.count = writer.Position;
-            temp.bytes = writer.AsArray();
+            hostMessage.count = writer.Position;
+            hostMessage.bytes = writer.AsArray();
             Network.Node instance;
             foreach (KeyValuePair<int, Network.Node> pair in room)
             {
@@ -1203,11 +1204,11 @@ namespace ZG.Network
                 if (instance == null || instance == player)
                     continue;
 
-                if (GetNode(player._index, out node))
+                if (!GetNode(instance._index, out node))
                     continue;
 
                 if (node.connectionId >= 0)
-                    NetworkServer.SendToClient(node.connectionId, (short)HostMessageType.Register, temp);
+                    NetworkServer.SendToClient(node.connectionId, (short)HostMessageType.Register, hostMessage);
             }
             
             IEnumerable<int> neighborRoomIndices = room.neighborRoomIndices;
@@ -1217,7 +1218,7 @@ namespace ZG.Network
                 foreach (int neighborRoomIndex in neighborRoomIndices)
                 {
                     if (__rooms.TryGetValue(neighborRoomIndex, out neighborRoom) && neighborRoom != null)
-                        neighborRoom.Send((short)HostMessageType.Register, temp, null);
+                        neighborRoom.Send((short)HostMessageType.Register, hostMessage, null);
                 }
             }
 
@@ -1229,15 +1230,15 @@ namespace ZG.Network
                     if (instance == null || instance == player)
                         continue;
 
-                    temp.index = instance._index;
+                    hostMessage.index = instance._index;
 
                     writer.SeekZero();
                     writer.Write(instance._type);
                     writer.Write(false);
-                    temp.count = writer.Position;
-                    temp.bytes = writer.AsArray();
+                    hostMessage.count = writer.Position;
+                    hostMessage.bytes = writer.AsArray();
 
-                    connection.Send((short)HostMessageType.Register, temp);
+                    connection.Send((short)HostMessageType.Register, hostMessage);
                 }
             }
 
@@ -1254,15 +1255,15 @@ namespace ZG.Network
                             if (instance == null)
                                 continue;
 
-                            temp.index = instance._index;
+                            hostMessage.index = instance._index;
                             
                             writer.SeekZero();
                             writer.Write(instance._type);
                             writer.Write(false);
-                            temp.count = writer.Position;
-                            temp.bytes = writer.AsArray();
+                            hostMessage.count = writer.Position;
+                            hostMessage.bytes = writer.AsArray();
 
-                            connection.Send((short)HostMessageType.Register, temp);
+                            connection.Send((short)HostMessageType.Register, hostMessage);
                         }
                     }
                 }

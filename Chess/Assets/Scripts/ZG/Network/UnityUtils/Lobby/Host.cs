@@ -105,7 +105,7 @@ namespace ZG.Network.Lobby
                 return false;
 
             int count;
-            if (!__players.TryGetValue(index, out count))
+            if (!__players.TryGetValue(index, out count) || count < 1)
                 return false;
 
             __players[index] = --count;

@@ -84,8 +84,8 @@ namespace ZG.Network.Lobby
 
                         if (count == room.count)
                         {
-                            if (onReady != null)
-                                onReady(node.roomIndex, count);
+                            if (onNotReady != null)
+                                onNotReady(node.roomIndex, count);
                         }
                     }
                     else
@@ -110,6 +110,7 @@ namespace ZG.Network.Lobby
         public void Awake()
         {
             onRegistered += __OnRegistered;
+            onUnregistered += __OnUnregistered;
         }
 
         protected virtual bool _GetRoomInfo(NetworkReader reader, int connectionId, int roomIndex, out int length)
@@ -261,6 +262,15 @@ namespace ZG.Network.Lobby
                     }
                 }
             }
+        }
+
+        private void __OnUnregistered(Network.Node player)
+        {
+            if (player == null)
+                return;
+
+            player.UnregisterHandler((short)HostMessageHandle.Ready);
+            player.UnregisterHandler((short)HostMessageHandle.NotReady);
         }
     }
 }

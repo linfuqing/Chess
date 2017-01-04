@@ -112,7 +112,7 @@ public class MahjongServer : Server
                     if (__tiles == null)
                         __tiles = new List<KeyValuePair<int, Mahjong.Tile>>();
 
-                    __tiles.Add(new KeyValuePair<int, Mahjong.Tile>(temp, GetHandTile(temp)));
+                    __tiles.Add(new KeyValuePair<int, Mahjong.Tile>(temp, Mahjong.Tile.Get(GetHandTileIndex(temp))));
                 };
 
                 if (__tiles != null)
@@ -139,7 +139,7 @@ public class MahjongServer : Server
 
             public new bool Discard(int index)
             {
-                Mahjong.Tile tile = GetHandTile(index);
+                Mahjong.Tile tile = Mahjong.Tile.Get(GetHandTileIndex(index));
                 if (base.Discard(index))
                 {
                     if (instance != null)
@@ -200,7 +200,7 @@ public class MahjongServer : Server
                 if (__tileCodes == null || instance == null)
                     return;
 
-                byte code = GetHandTile(index);
+                byte code = Mahjong.Tile.Get(GetHandTileIndex(index));
                 if (code >= __tileCodes.Length)
                     return;
 
@@ -210,7 +210,7 @@ public class MahjongServer : Server
             private void __Remove(int index)
             {
                 if (instance != null)
-                    instance.Throw((byte)index, 255, GetHandTile(index));
+                    instance.Throw((byte)index, 255, Mahjong.Tile.Get(GetHandTileIndex(index)));
             }
 
             private void __OnThrow(byte index)

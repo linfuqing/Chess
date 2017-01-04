@@ -520,7 +520,7 @@ namespace ZG
         {
             return RemoveAt(IndexOf(data));
         }
-
+        
         /// <summary>
         /// Copies the entire <see cref="Pool{T}"/> to a compatible one-dimensional array, starting at the specified index of the target array.
         /// </summary>

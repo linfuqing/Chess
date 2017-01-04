@@ -52,6 +52,8 @@ public class Mahjong
 
         Win, 
 
+        SelfDraw, 
+
         Unknown
     }
     
@@ -702,19 +704,18 @@ public class Mahjong
 
         public struct Enumerator : IEnumerator<int>
         {
-            private IEnumerator<LinkedListNode<LinkedListNode<int>>> __instance;
+            private IEnumerator<LinkedListNode<int>> __instance;
 
             public int Current
             {
                 get
                 {
-                    LinkedListNode<LinkedListNode<int>> node = __instance == null ? null : __instance.Current;
-                    LinkedListNode<int> temp = node == null ? null : node.Value;
-                    return temp == null ? -1 : temp.Value;
+                    LinkedListNode<int> node = __instance == null ? null : __instance.Current;
+                    return node == null ? -1 : node.Value;
                 }
             }
             
-            public Enumerator(IEnumerator<LinkedListNode<LinkedListNode<int>>> instance)
+            public Enumerator(IEnumerator<LinkedListNode<int>> instance)
             {
                 __instance = instance;
             }
@@ -1662,7 +1663,7 @@ public class Mahjong
 
         public Enumerator GetEnumerator()
         {
-            return new Enumerator(__handIndices == null ? null : __handIndices.GetEnumerator());
+            return new Enumerator(__handTileNodes == null ? default(LinkedList<LinkedListNode<int>>.Enumerator) : __handTileNodes.GetEnumerator());
         }
 
         public Iterator GetIterator()
@@ -1743,7 +1744,7 @@ public class Mahjong
                 {
                     __handTileIndices.AddBefore(temp, node);
 
-                    break;
+                    return true;
                 }
             }
 
@@ -1780,7 +1781,7 @@ public class Mahjong
                 {
                     __handTileNodes.AddBefore(temp, node);
 
-                    break;
+                    return true;
                 }
             }
 

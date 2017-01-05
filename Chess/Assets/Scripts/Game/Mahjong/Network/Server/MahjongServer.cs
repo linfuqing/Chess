@@ -419,6 +419,34 @@ public class MahjongServer : Server
                                 player.SendRuleMessage(ruleNodes);
 
                                 yield return player.WaitToTry(5.0f);
+                                
+                                for (i = 1; i < 4; ++i)
+                                {
+                                    player = __mahjong.Get((i + index) & 3) as Player;
+                                    if (player != null)
+                                    {
+                                        ruleNodes = player.Start();
+
+                                        if (ruleNodes != null && ruleNodes.Count > 0)
+                                        {
+                                            player.SendRuleMessage(ruleNodes);
+
+                                            yield return player.WaitToTry(5.0f);
+
+                                            ruleType = __mahjong.ruleType;
+                                            if (ruleType == Mahjong.RuleType.BreakKong)
+                                                break;
+                                        }
+                                    }
+                                }
+
+                                ruleType = __mahjong.ruleType;
+                                if (ruleType == Mahjong.RuleType.BreakKong)
+                                {
+                                    __isRunning = false;
+
+                                    break;
+                                }
 
                                 ruleType = __mahjong.ruleType;
                                 if (ruleType != Mahjong.RuleType.Unknown && index == __mahjong.rulePlayerIndex)
@@ -427,7 +455,7 @@ public class MahjongServer : Server
                                     ruleNode = player.Get(ruleNodeIndex);
                                     ruleType = ruleNode.type = player.End(ruleNodeIndex);
 
-                                    if (ruleType == Mahjong.RuleType.Win)
+                                    if (ruleType == Mahjong.RuleType.SelfDraw || ruleType == Mahjong.RuleType.OverKong)
                                     {
                                         __isRunning = false;
 
@@ -438,7 +466,7 @@ public class MahjongServer : Server
                                         continue;
                                 }
                             }
-                            
+
                             yield return player.WaitToThrow(6.0f);
 
                             for (i = 1; i < 4; ++i)
@@ -453,6 +481,10 @@ public class MahjongServer : Server
                                         player.SendRuleMessage(ruleNodes);
 
                                         yield return player.WaitToTry(5.0f);
+
+                                        ruleType = __mahjong.ruleType;
+                                        if (ruleType == Mahjong.RuleType.Win)
+                                            break;
                                     }
                                 }
                             }

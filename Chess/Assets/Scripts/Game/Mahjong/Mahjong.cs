@@ -51,6 +51,9 @@ public class Mahjong
         MeldedKong, 
 
         Win, 
+        SelfDraw, 
+        BreakKong, 
+        OverKong, 
 
         Unknown
     }
@@ -484,11 +487,11 @@ public class Mahjong
             return length > 13;
         }*/
 
-        public bool Win(IEnumerable<int> indices)
+        public IEnumerable<int> Win(IEnumerable<int> indices)
         {
             IEnumerator<int> enumerator = indices == null ? null : indices.GetEnumerator();
             if (enumerator == null || !enumerator.MoveNext())
-                return false;
+                return null;
 
             IEnumerable<int> result = this.winFlag;
             Tile source = Tile.Get(enumerator.Current), destination;
@@ -502,19 +505,19 @@ public class Mahjong
                 {
                     temp = Math.Min(Math.Min(previousCount, currentCount), nextCount);
                     if (!__Check(temp, ref result))
-                        return false;
+                        return null;
 
                     previousCount -= temp;
                     if (previousCount > 0 && !__CheckEye(previousCount, ref result))
-                        return false;
+                        return null;
 
                     currentCount -= temp;
                     if (currentCount > 0 && !__CheckEye(currentCount, ref result))
-                        return false;
+                        return null;
 
                     nextCount -= temp;
                     if (nextCount > 0 && !__CheckEye(nextCount, ref result))
-                        return false;
+                        return null;
 
                     previousCount = 0;
                     currentCount = 0;
@@ -526,39 +529,39 @@ public class Mahjong
                 {
                     temp = Math.Min(Math.Min(previousCount, currentCount), nextCount);
                     if (!__Check(temp, ref result))
-                        return false;
+                        return null;
 
                     previousCount -= temp;
                     if (previousCount > 0 && !__CheckEye(previousCount, ref result))
-                        return false;
+                        return null;
 
                     previousCount = currentCount - temp;
                     currentCount = nextCount - temp;
                     nextCount = 1;
                 }
                 else
-                    return false;
+                    return null;
                 
                 source = destination;
             }
 
             temp = Math.Min(Math.Min(previousCount, currentCount), nextCount);
             if (!__Check(temp, ref result))
-                return false;
+                return null;
 
             previousCount -= temp;
             if (previousCount > 0 && !__CheckEye(previousCount, ref result))
-                return false;
+                return null;
 
             currentCount -= temp;
             if (currentCount > 0 && !__CheckEye(currentCount, ref result))
-                return false;
+                return null;
 
             nextCount -= temp;
             if (nextCount > 0 && !__CheckEye(nextCount, ref result))
-                return false;
+                return null;
 
-            return count > 13;
+            return count > 13 ? result : null;
         }
 
         private bool __Check(int count, ref IEnumerable<int> winFlags)
@@ -640,16 +643,26 @@ public class Mahjong
         {
             internal RuleType _type;
 
+            internal int _playerIndex;
+
             internal LinkedListNode<int> _node0;
             internal LinkedListNode<int> _node1;
             internal LinkedListNode<int> _node2;
             internal LinkedListNode<int> _node3;
-
+            
             public RuleType type
             {
                 get
                 {
                     return _type;
+                }
+            }
+
+            public int playerIndex
+            {
+                get
+                {
+                    return _playerIndex;
                 }
             }
 
@@ -687,12 +700,14 @@ public class Mahjong
 
             public Group(
                 RuleType type, 
+                int playerIndex, 
                 LinkedListNode<int> node0, 
                 LinkedListNode<int> node1, 
                 LinkedListNode<int> node2, 
                 LinkedListNode<int> node3)
             {
                 _type = type;
+                _playerIndex = playerIndex;
                 _node0 = node0;
                 _node1 = node1;
                 _node2 = node2;
@@ -800,6 +815,7 @@ public class Mahjong
         private int __index;
         private int __poolTileIndex;
         private int __handleTileIndex;
+        private int __kongPlayerIndex;
         private int __kongCount;
         private Mahjong __mahjong;
         private Pool<int> __poolTileIndices;
@@ -807,6 +823,7 @@ public class Mahjong
         private LinkedList<LinkedListNode<int>> __handTileNodes;
         private LinkedList<int> __handTileIndices;
         private List<RuleNode> __ruleNodes;
+        private List<IEnumerable<int>> __winFlags;
         private List<Group> __groups; 
 
         public bool isDraw
@@ -916,6 +933,11 @@ public class Mahjong
             __index = -1;
             __poolTileIndex = -1;
             __handleTileIndex = -1;
+        }
+
+        public virtual int Score(IEnumerable<int> winFlags)
+        {
+            return 0;
         }
 
         public int GetHandTileIndex(int index)
@@ -1115,6 +1137,10 @@ public class Mahjong
 
             __poolTileIndex = __poolTileIndices.Add(node.Value);
 
+            __handleTileIndex = -1;
+
+            __kongPlayerIndex = -1;
+
             __Clear();
 
             return true;
@@ -1129,7 +1155,8 @@ public class Mahjong
                 __mahjong.__tileCount < 47)
                 return null;
 
-            if (__mahjong.__players[__mahjong.__playerIndex] == this)
+            Player player = __mahjong.__players[__mahjong.__playerIndex];
+            if (player == this)
             {
                 if (__isDraw)
                 {
@@ -1160,12 +1187,13 @@ public class Mahjong
                         }
                     }
 
-                    if (__mahjong.rule.Win(__handTileIndices))
-                        __Add(new RuleNode(RuleType.Win, 0, 0));
+                    IEnumerable<int> winFlags = __mahjong.rule.Win(__handTileIndices);
+                    if (winFlags != null)
+                        __Add(new RuleNode(__kongPlayerIndex >= 0 && __kongPlayerIndex < 4 ? RuleType.OverKong : RuleType.SelfDraw, __Add(winFlags), 0));
                 }
                 else
                 {
-                    Player player = __mahjong.__players[(__mahjong.__playerIndex + 3) & 3];
+                    player = __mahjong.__players[(__mahjong.__playerIndex + 3) & 3];
                     if (player != null && player.__poolTileIndices != null)
                     {
                         int tileIndex;
@@ -1174,13 +1202,11 @@ public class Mahjong
                             __mahjong.rule.Check(this, tileIndex, delegate (RuleNode ruleNode)
                             {
                                 __Add(ruleNode);
-                                
-                                if (Check(tileIndex))
-                                {
-                                    ruleNode.type = RuleType.Win;
-                                    __Add(ruleNode);
-                                }
                             });
+
+                            IEnumerable<int> winFlags = Check(tileIndex);
+                            if (winFlags != null)
+                                __Add(new RuleNode(RuleType.Win, __Add(winFlags), 0));
                         }
                     }
                     else
@@ -1189,32 +1215,41 @@ public class Mahjong
             }
             else
             {
-                Player player = __mahjong.__players[__mahjong.__playerIndex];
-                if (player == null || player.__isDraw)
+                if (player == null)
                     return null;
-                
-                player = __mahjong.__players[(__mahjong.__playerIndex + 3) & 3];
-                if (player == this)
-                    return null;
-                
-                if (player != null && player.__poolTileIndices != null)
-                {
-                    int tileIndex;
-                    if (player.__poolTileIndices.TryGetValue(player.__poolTileIndex, out tileIndex))
-                    {
-                        __mahjong.rule.Check(this, tileIndex, delegate (RuleNode ruleNode)
-                        {
-                            if (ruleNode.type == RuleType.Chow)
-                                return;
 
-                            __Add(ruleNode);
-                            
-                            if (Check(tileIndex))
+                if (player.__isDraw)
+                {
+                    if (__mahjong.__rulePlayerIndex == __mahjong.__playerIndex && __mahjong.__ruleType == RuleType.Kong)
+                    {
+                        IEnumerable<int> winFlags = Check(player.GetHandTileIndex(player.__handleTileIndex));
+                        if(winFlags != null)
+                            __Add(new RuleNode(RuleType.BreakKong, __Add(winFlags), 0));
+                    }
+                }
+                else
+                {
+                    player = __mahjong.__players[(__mahjong.__playerIndex + 3) & 3];
+                    if (player == this)
+                        return null;
+
+                    if (player != null && player.__poolTileIndices != null)
+                    {
+                        int tileIndex;
+                        if (player.__poolTileIndices.TryGetValue(player.__poolTileIndex, out tileIndex))
+                        {
+                            __mahjong.rule.Check(this, tileIndex, delegate (RuleNode ruleNode)
                             {
-                                ruleNode.type = RuleType.Win;
+                                if (ruleNode.type == RuleType.Chow)
+                                    return;
+
                                 __Add(ruleNode);
-                            }
-                        });
+                            });
+                            
+                            IEnumerable<int> winFlags = Check(tileIndex);
+                            if (winFlags != null)
+                                __Add(new RuleNode(RuleType.Win, __Add(winFlags), 0));
+                        }
                     }
                 }
             }
@@ -1280,6 +1315,9 @@ public class Mahjong
                     }
                     break;
                 case RuleType.Win:
+                case RuleType.SelfDraw:
+                case RuleType.BreakKong:
+                case RuleType.OverKong:
                     __mahjong.__rulePlayerIndex = __index;
                     __mahjong.__ruleNodeIndex = index;
                     __mahjong.__ruleType = ruleType;
@@ -1313,15 +1351,7 @@ public class Mahjong
             }
 
             RuleNode target = __ruleNodes[index];
-            if (target.type == RuleType.Win)
-            {
-                type = RuleType.Win;
-                
-                __Clear();
 
-                return -1;
-            }
-            
             index = target.index;
             LinkedListNode<int> node = __handTileIndices == null ? null : __handTileIndices.First;
             while (node != null)
@@ -1343,53 +1373,238 @@ public class Mahjong
             Group group;
             Player player;
             LinkedListNode<int> node1, result;
-            if (target.type == RuleType.Kong)
+            switch (target.type)
             {
-                LinkedListNode<int> node2;
-                if (playerIndex == __index)
-                {
-                    if (__handIndices == null)
-                    {
-                        type = RuleType.Unknown;
-
-                        return -1;
-                    }
-                    
-                    if (handler != null)
-                        handler(__handleTileIndex);
-
-                    result = __Remove(__handleTileIndex);
-                    if (result == null)
+                case RuleType.Chow:
+                case RuleType.Pong:
+                    if (__mahjong.__players == null ||
+                    __mahjong.__players.Length <= playerIndex)
                     {
                         type = RuleType.Unknown;
 
                         return -1;
                     }
 
-                    if (__groups != null)
+                    player = __mahjong.__players[playerIndex];
+                    if (player == null || player.__poolTileIndices == null || !player.__poolTileIndices.TryGetValue(player.__poolTileIndex, out tileIndex))
                     {
-                        count = __groups == null ? 0 : __groups.Count;
-                        for(i = 0; i < count; ++ i)
+                        type = RuleType.Unknown;
+
+                        return -1;
+                    }
+
+                    while (node.Value == tileIndex)
+                    {
+                        node = node.Next;
+                        if (node == null)
                         {
-                            group = __groups[i];
-                            if (group._node0 == node)
+                            type = RuleType.Unknown;
+
+                            return -1;
+                        }
+                    }
+
+                    node1 = node;
+                    do
+                    {
+                        node1 = node1.Next;
+                        if (node1 == null)
+                        {
+                            type = RuleType.Unknown;
+
+                            return -1;
+                        }
+                    } while (node1.Value == tileIndex);
+
+
+                    i = __IndexOf(node);
+
+                    if (handler != null)
+                        handler(i);
+
+                    if (__Remove(i) != node)
+                    {
+                        type = RuleType.Unknown;
+
+                        return -1;
+                    }
+
+                    i = __IndexOf(node1);
+
+                    if (handler != null)
+                        handler(i);
+
+                    if (__Remove(i) != node1)
+                    {
+                        type = RuleType.Unknown;
+
+                        return -1;
+                    }
+
+                    result = new LinkedListNode<int>(tileIndex);
+                    if (!__Add(result))
+                    {
+                        type = RuleType.Unknown;
+
+                        return -1;
+                    }
+
+                    if (__groups == null)
+                        __groups = new List<Group>();
+
+                    __groups.Add(new Group(target.type, playerIndex, node, node1, result, null));
+
+                    player.__poolTileIndices.RemoveAt(player.__poolTileIndex);
+
+                    player.__poolTileIndex = -1;
+
+                    __mahjong.__playerIndex = __index;
+
+                    __isDraw = true;
+
+                    __Clear();
+
+                    type = target.type;
+
+                    return __groups.Count - 1;
+                case RuleType.Kong:
+                    LinkedListNode<int> node2;
+                    if (playerIndex == __index)
+                    {
+                        if (__handIndices == null)
+                        {
+                            type = RuleType.Unknown;
+
+                            return -1;
+                        }
+
+                        if (handler != null)
+                            handler(__handleTileIndex);
+
+                        result = __Remove(__handleTileIndex);
+                        if (result == null)
+                        {
+                            type = RuleType.Unknown;
+
+                            return -1;
+                        }
+
+                        if (__groups != null)
+                        {
+                            count = __groups == null ? 0 : __groups.Count;
+                            for (i = 0; i < count; ++i)
                             {
-                                group._type = RuleType.MeldedKong;
-                                group._node3 = result;
-                                
-                                __groups[i] = group;
+                                group = __groups[i];
+                                if (group._node0 == node)
+                                {
+                                    group._type = RuleType.MeldedKong;
+                                    group._node3 = result;
 
-                                ++__kongCount;
-                                
-                                __isDraw = false;
+                                    __groups[i] = group;
 
-                                __Clear();
+                                    ++__kongCount;
 
-                                type = RuleType.MeldedKong;
+                                    __handleTileIndex = -1;
 
-                                return i;
+                                    __kongPlayerIndex = -1;
+
+                                    __isDraw = false;
+
+                                    __Clear();
+
+                                    type = RuleType.MeldedKong;
+
+                                    return i;
+                                }
                             }
                         }
+
+                        node1 = node.Next;
+                        if (node1 == null)
+                        {
+                            type = RuleType.Unknown;
+
+                            return -1;
+                        }
+
+                        node2 = node1.Next;
+                        if (node2 == null)
+                        {
+                            type = RuleType.Unknown;
+
+                            return -1;
+                        }
+
+                        i = __IndexOf(node);
+
+                        if (handler != null)
+                            handler(i);
+
+                        if (__Remove(i) != node)
+                        {
+                            type = RuleType.Unknown;
+
+                            return -1;
+                        }
+
+                        i = __IndexOf(node1);
+
+                        if (handler != null)
+                            handler(i);
+
+                        if (__Remove(i) != node1)
+                        {
+                            type = RuleType.Unknown;
+
+                            return -1;
+                        }
+
+                        i = __IndexOf(node2);
+
+                        if (handler != null)
+                            handler(i);
+
+                        if (__Remove(i) != node2)
+                        {
+                            type = RuleType.Unknown;
+
+                            return -1;
+                        }
+
+                        if (__groups == null)
+                            __groups = new List<Group>();
+
+                        __groups.Add(new Group(RuleType.HiddenKong, playerIndex, node, node1, node2, result));
+
+                        ++__kongCount;
+                        
+                        __handleTileIndex = -1;
+
+                        __kongPlayerIndex = -1;
+
+                        __isDraw = false;
+
+                        __Clear();
+
+                        type = RuleType.HiddenKong;
+
+                        return __groups.Count - 1;
+                    }
+
+                    if (__mahjong.__players == null ||
+                    __mahjong.__players.Length <= playerIndex)
+                    {
+                        type = RuleType.Unknown;
+
+                        return -1;
+                    }
+
+                    player = __mahjong.__players[playerIndex];
+                    if (player == null || player.__poolTileIndices == null || !player.__poolTileIndices.TryGetValue(player.__poolTileIndex, out tileIndex))
+                    {
+                        type = RuleType.Unknown;
+
+                        return -1;
                     }
 
                     node1 = node.Next;
@@ -1444,216 +1659,60 @@ public class Mahjong
                         return -1;
                     }
 
+                    result = new LinkedListNode<int>(tileIndex);
+                    if (!__Add(result))
+                    {
+                        type = RuleType.Unknown;
+
+                        return -1;
+                    }
+
                     if (__groups == null)
                         __groups = new List<Group>();
 
-                    __groups.Add(new Group(RuleType.HiddenKong, node, node1, node2, result));
+                    __groups.Add(new Group(RuleType.Kong, playerIndex, node, node1, node2, result));
+
+                    player.__poolTileIndices.RemoveAt(player.__poolTileIndex);
+
+                    player.__poolTileIndex = -1;
+
+                    __mahjong.__playerIndex = __index;
 
                     ++__kongCount;
 
-                    __isDraw = false;
+                    __kongPlayerIndex = playerIndex;
 
                     __Clear();
 
-                    type = RuleType.HiddenKong;
+                    type = RuleType.Kong;
 
                     return __groups.Count - 1;
-                }
-
-                if (__mahjong.__players == null ||
-                __mahjong.__players.Length <= playerIndex)
-                {
-                    type = RuleType.Unknown;
-
-                    return -1;
-                }
-
-                player = __mahjong.__players[playerIndex];
-                if (player == null || player.__poolTileIndices == null || !player.__poolTileIndices.TryGetValue(player.__poolTileIndex, out tileIndex))
-                {
-                    type = RuleType.Unknown;
+                case RuleType.Win:
+                case RuleType.SelfDraw:
+                case RuleType.BreakKong:
+                case RuleType.OverKong:
+                    __Clear();
+                    
+                    type = target.type;
 
                     return -1;
-                }
-                
-                node1 = node.Next;
-                if (node1 == null)
-                {
-                    type = RuleType.Unknown;
-
-                    return -1;
-                }
-
-                node2 = node1.Next;
-                if (node2 == null)
-                {
-                    type = RuleType.Unknown;
-
-                    return -1;
-                }
-
-                i = __IndexOf(node);
-
-                if (handler != null)
-                    handler(i);
-
-                if (__Remove(i) != node)
-                {
-                    type = RuleType.Unknown;
-
-                    return -1;
-                }
-
-                i = __IndexOf(node1);
-
-                if (handler != null)
-                    handler(i);
-
-                if (__Remove(i) != node1)
-                {
-                    type = RuleType.Unknown;
-
-                    return -1;
-                }
-
-                i = __IndexOf(node2);
-
-                if (handler != null)
-                    handler(i);
-
-                if (__Remove(i) != node2)
-                {
-                    type = RuleType.Unknown;
-
-                    return -1;
-                }
-
-                result = new LinkedListNode<int>(tileIndex);
-                if(!__Add(result))
-                {
-                    type = RuleType.Unknown;
-
-                    return -1;
-                }
-
-                if (__groups == null)
-                    __groups = new List<Group>();
-
-                __groups.Add(new Group(RuleType.Kong, node, node1, node2, result));
-                
-                player.__poolTileIndices.RemoveAt(player.__poolTileIndex);
-
-                __mahjong.__playerIndex = __index;
-
-                ++__kongCount;
-
-                __Clear();
-
-                type = RuleType.Kong;
-
-                return __groups.Count - 1;
             }
 
-            if (__mahjong.__players == null ||
-            __mahjong.__players.Length <= playerIndex)
-            {
-                type = RuleType.Unknown;
+            type = RuleType.Unknown;
 
-                return -1;
-            }
-
-            player = __mahjong.__players[playerIndex];
-            if (player == null || player.__poolTileIndices == null || !player.__poolTileIndices.TryGetValue(player.__poolTileIndex, out tileIndex))
-            {
-                type = RuleType.Unknown;
-
-                return -1;
-            }
-            
-            while(node.Value == tileIndex)
-            {
-                node = node.Next;
-                if (node == null)
-                {
-                    type = RuleType.Unknown;
-
-                    return -1;
-                }
-            }
-
-            node1 = node;
-            do
-            {
-                node1 = node1.Next;
-                if (node1 == null)
-                {
-                    type = RuleType.Unknown;
-
-                    return -1;
-                }
-            } while (node1.Value == tileIndex);
-
-
-            i = __IndexOf(node);
-
-            if (handler != null)
-                handler(i);
-
-            if (__Remove(i) != node)
-            {
-                type = RuleType.Unknown;
-
-                return -1;
-            }
-
-            i = __IndexOf(node1);
-
-            if (handler != null)
-                handler(i);
-
-            if (__Remove(i) != node1)
-            {
-                type = RuleType.Unknown;
-
-                return -1;
-            }
-
-            result = new LinkedListNode<int>(tileIndex);
-            if(!__Add(result))
-            {
-                type = RuleType.Unknown;
-
-                return -1;
-            }
-
-            if (__groups == null)
-                __groups = new List<Group>();
-
-            __groups.Add(new Group(target.type, node, node1, result, null));
-            
-            player.__poolTileIndices.RemoveAt(player.__poolTileIndex);
-
-            __mahjong.__playerIndex = __index;
-
-            __isDraw = true;
-
-            __Clear();
-
-            type = target.type;
-
-            return __groups.Count - 1;
+            return -1;
         }
 
-        public bool Check(int index)
+        public IEnumerable<int> Check(int index)
         {
             if (__mahjong == null || __mahjong.rule == null)
-                return false;
+                return null;
 
             LinkedListNode<int> node = new LinkedListNode<int>(index);
             if (!__Add(node))
-                return false;
+                return null;
 
-            bool result = __mahjong.rule.Win(__handTileIndices);
+            IEnumerable<int> result = __mahjong.rule.Win(__handTileIndices);
             if (__handTileIndices != null)
                 __handTileIndices.Remove(node);
 
@@ -1856,6 +1915,16 @@ public class Mahjong
             __ruleNodes.Add(ruleNode);
         }
 
+        private int __Add(IEnumerable<int> winFlags)
+        {
+            if (__winFlags == null)
+                __winFlags = new List<IEnumerable<int>>();
+
+            __winFlags.Add(winFlags);
+
+            return __winFlags.Count - 1;
+        }
+
         private void __Clear()
         {
             if (__mahjong == null)
@@ -1867,10 +1936,11 @@ public class Mahjong
                 {
                     if (player != null)
                     {
-                        player.__poolTileIndex = -1;
-
                         if (player.__ruleNodes != null)
                             player.__ruleNodes.Clear();
+
+                        if (player.__winFlags != null)
+                            player.__winFlags.Clear();
                     }
                 }
             }

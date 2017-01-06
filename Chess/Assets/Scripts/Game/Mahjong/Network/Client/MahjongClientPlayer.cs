@@ -84,6 +84,11 @@ public class MahjongClientPlayer : Node
     private LinkedList<Selector> __selectors;
     private List<MahjongAsset> __selectedAssets;
     private Dictionary<byte, Group> __groups;
+
+    public void Clear()
+    {
+
+    }
     
     public void Unselect()
     {

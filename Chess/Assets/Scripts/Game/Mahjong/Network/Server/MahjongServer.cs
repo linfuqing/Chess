@@ -390,9 +390,9 @@ public class MahjongServer : Server
             IEnumerable<Mahjong.Player> players = __mahjong.players;
             if(players != null)
             {
-                foreach(Mahjong.Player temp in players)
+                foreach(Mahjong.Player instance in players)
                 {
-                    player = temp as Player;
+                    player = instance as Player;
                     if (player != null)
                         player.Reset();
                 }
@@ -403,6 +403,7 @@ public class MahjongServer : Server
             Mahjong.RuleType ruleType;
             Mahjong.RuleNode ruleNode;
             ReadOnlyCollection<Mahjong.RuleNode> ruleNodes;
+            Player temp;
             while (__mahjong.tileCount < 144)
             {
                 index = __mahjong.playerIndex;
@@ -422,31 +423,37 @@ public class MahjongServer : Server
                                 
                                 for (i = 1; i < 4; ++i)
                                 {
-                                    player = __mahjong.Get((i + index) & 3) as Player;
-                                    if (player != null)
+                                    temp = __mahjong.Get((i + index) & 3) as Player;
+                                    if (temp != null)
                                     {
-                                        ruleNodes = player.Start();
+                                        ruleNodes = temp.Start();
 
                                         if (ruleNodes != null && ruleNodes.Count > 0)
                                         {
-                                            player.SendRuleMessage(ruleNodes);
+                                            temp.SendRuleMessage(ruleNodes);
 
-                                            yield return player.WaitToTry(5.0f);
+                                            yield return temp.WaitToTry(5.0f);
 
                                             ruleType = __mahjong.ruleType;
                                             if (ruleType == Mahjong.RuleType.BreakKong)
+                                            {
+                                                if (__mahjong.rulePlayerIndex == temp.index)
+                                                {
+                                                    ruleType = temp.End(__mahjong.ruleNodeIndex);
+                                                    if (ruleType == Mahjong.RuleType.Unknown)
+                                                        continue;
+                                                }
+                                                
+                                                __isRunning = false;
+
                                                 break;
+                                            }
                                         }
                                     }
                                 }
-
-                                ruleType = __mahjong.ruleType;
-                                if (ruleType == Mahjong.RuleType.BreakKong)
-                                {
-                                    __isRunning = false;
-
+                                
+                                if (!__isRunning)
                                     break;
-                                }
 
                                 ruleType = __mahjong.ruleType;
                                 if (ruleType != Mahjong.RuleType.Unknown && index == __mahjong.rulePlayerIndex)
@@ -471,32 +478,29 @@ public class MahjongServer : Server
 
                             for (i = 1; i < 4; ++i)
                             {
-                                player = __mahjong.Get((i + index) & 3) as Player;
-                                if (player != null)
+                                temp = __mahjong.Get((i + index) & 3) as Player;
+                                if (temp != null)
                                 {
-                                    ruleNodes = player.Start();
+                                    ruleNodes = temp.Start();
 
                                     if (ruleNodes != null && ruleNodes.Count > 0)
                                     {
-                                        player.SendRuleMessage(ruleNodes);
+                                        temp.SendRuleMessage(ruleNodes);
 
-                                        yield return player.WaitToTry(5.0f);
+                                        yield return temp.WaitToTry(5.0f);
 
                                         ruleType = __mahjong.ruleType;
                                         if (ruleType == Mahjong.RuleType.Win)
+                                        {
+                                            __isRunning = false;
+
                                             break;
+                                        }
                                     }
                                 }
                             }
 
                             ruleType = __mahjong.ruleType;
-                            if (ruleType == Mahjong.RuleType.Win)
-                            {
-                                __isRunning = false;
-
-                                break;
-                            }
-
                             if (ruleType != Mahjong.RuleType.Unknown)
                             {
                                 player = __mahjong.Get(__mahjong.rulePlayerIndex) as Player;
@@ -507,7 +511,7 @@ public class MahjongServer : Server
                                     ruleType = ruleNode.type = player.End(ruleNodeIndex);
                                 }
                             }
-
+                            
                             break;
                         }
                         else if (!player.Draw())

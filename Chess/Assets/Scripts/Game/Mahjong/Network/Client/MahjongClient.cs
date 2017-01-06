@@ -25,21 +25,11 @@ public class MahjongClient : Client
     public new void Create()
     {
         base.Create();
-
-        RegisterHandler((short)MahjongNetworkMessageType.Shuffle, __OnShuffle);
+        
         RegisterHandler((short)MahjongNetworkMessageType.TileCodes, __OnTileCodes);
         RegisterHandler((short)MahjongNetworkMessageType.RuleNodes, __OnRuleNodes);
     }
-
-    private void __OnShuffle(NetworkMessage message)
-    {
-        MahjongShuffleMessage shuffleMessage = message == null ? null : message.ReadMessage<MahjongShuffleMessage>();
-        if (shuffleMessage == null)
-            return;
-
-
-    }
-
+    
     private void __OnTileCodes(NetworkMessage message)
     {
         MahjongTileCodeMessage tileCodeMessage = message == null ? null : message.ReadMessage<MahjongTileCodeMessage>();

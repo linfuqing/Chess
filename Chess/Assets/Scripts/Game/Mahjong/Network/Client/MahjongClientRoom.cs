@@ -48,6 +48,9 @@ public class MahjongClientRoom : MonoBehaviour
     {
         if (this.asset != null)
         {
+            if (__instances == null)
+                __instances = new MahjongAsset[count << 3];
+
             MahjongAsset asset;
             Transform transform;
             float offset = width * (count * 0.5f - 0.5f), temp;
@@ -62,10 +65,7 @@ public class MahjongClientRoom : MonoBehaviour
                 {
                     transform.eulerAngles = new Vector3(-90.0f, 90.0f, 0.0f);
                     transform.position = new Vector3(size, length * 2.0f, -temp);
-
-                    if (__instances == null)
-                        __instances = new MahjongAsset[count << 3];
-
+                    
                     __instances[(count << 1) * 0 + (i << 1) + 0] = asset;
                 }
 
@@ -75,10 +75,7 @@ public class MahjongClientRoom : MonoBehaviour
                 {
                     transform.eulerAngles = new Vector3(-90.0f, 90.0f, 0.0f);
                     transform.position = new Vector3(size, length, -temp);
-
-                    if (__instances == null)
-                        __instances = new MahjongAsset[count << 3];
-
+                    
                     __instances[(count << 1) * 0 + (i << 1) + 1] = asset;
                 }
 
@@ -89,10 +86,7 @@ public class MahjongClientRoom : MonoBehaviour
                 {
                     transform.eulerAngles = new Vector3(-90.0f, 180.0f, 0.0f);
                     transform.position = new Vector3(-temp, length * 2.0f, -size);
-
-                    if (__instances == null)
-                        __instances = new MahjongAsset[count << 3];
-
+                    
                     __instances[(count << 1) * 1 + (i << 1) + 0] = asset;
                 }
 
@@ -102,10 +96,7 @@ public class MahjongClientRoom : MonoBehaviour
                 {
                     transform.eulerAngles = new Vector3(-90.0f, 180.0f, 0.0f);
                     transform.position = new Vector3(-temp, length, -size);
-
-                    if (__instances == null)
-                        __instances = new MahjongAsset[count << 3];
-
+                    
                     __instances[(count << 1) * 1 + (i << 1) + 1] = asset;
                 }
 
@@ -116,10 +107,7 @@ public class MahjongClientRoom : MonoBehaviour
                 {
                     transform.eulerAngles = new Vector3(-90.0f, -90.0f, 0.0f);
                     transform.position = new Vector3(-size, length * 2.0f, temp);
-
-                    if (__instances == null)
-                        __instances = new MahjongAsset[count << 3];
-
+                    
                     __instances[(count << 1) * 2 + (i << 1) + 0] = asset;
                 }
 
@@ -129,10 +117,7 @@ public class MahjongClientRoom : MonoBehaviour
                 {
                     transform.eulerAngles = new Vector3(-90.0f, -90.0f, 0.0f);
                     transform.position = new Vector3(-size, length, temp);
-
-                    if (__instances == null)
-                        __instances = new MahjongAsset[count << 3];
-
+                    
                     __instances[(count << 1) * 2 + (i << 1) + 1] = asset;
                 }
 
@@ -143,10 +128,7 @@ public class MahjongClientRoom : MonoBehaviour
                 {
                     transform.eulerAngles = new Vector3(-90.0f, 0.0f, 0.0f);
                     transform.position = new Vector3(temp, length * 2.0f, size);
-
-                    if (__instances == null)
-                        __instances = new MahjongAsset[count << 3];
-
+                    
                     __instances[(count << 1) * 3 + (i << 1) + 0] = asset;
                 }
 
@@ -156,10 +138,7 @@ public class MahjongClientRoom : MonoBehaviour
                 {
                     transform.eulerAngles = new Vector3(-90.0f, 0.0f, 0.0f);
                     transform.position = new Vector3(temp, length, size);
-
-                    if (__instances == null)
-                        __instances = new MahjongAsset[count << 3];
-
+                    
                     __instances[(count << 1) * 3 + (i << 1) + 1] = asset;
                 }
             }

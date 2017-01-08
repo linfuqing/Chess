@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.SceneManagement;
@@ -157,15 +158,27 @@ public class MahjongClientMain : MonoBehaviour
     {
         if (__shuffleMessage == null)
             return;
+        
+        IEnumerable<Node> nodes = __client == null ? null : __client.nodes;
+        if (nodes != null)
+        {
+            MahjongClientPlayer player;
+            foreach (Node node in nodes)
+            {
+                player = node as MahjongClientPlayer;
+                if (player != null)
+                    player.Clear();
+            }
+        }
 
         MahjongClientRoom room = MahjongClientRoom.instance;
-        if (room == null)
-            return;
+        if (room != null)
+        {
+            int handTileCount = 18;
+            int count = __shuffleMessage.point0 + __shuffleMessage.point1;
 
-        int handTileCount = 18;
-        int count = __shuffleMessage.point0 + __shuffleMessage.point1;
-
-        room.Init(handTileCount, ((count + 1) & 3) * handTileCount + count + __shuffleMessage.point2 + __shuffleMessage.point3);
+            room.Init(handTileCount, ((count + 1) & 3) * handTileCount + count + __shuffleMessage.point2 + __shuffleMessage.point3);
+        }
     }
 
     private IEnumerator __LoadScene(int sceneBuildIndex, Action onComplete, Coroutine coroutine)

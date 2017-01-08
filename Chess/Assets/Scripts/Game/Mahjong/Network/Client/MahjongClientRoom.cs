@@ -1,8 +1,16 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 using UnityEngine.UI;
 
 public class MahjongClientRoom : MonoBehaviour
 {
+    [Serializable]
+    public struct Finish
+    {
+        public GameObject root;
+        public Button ready;
+    }
+
     public static MahjongClientRoom instance;
 
     public float width;
@@ -21,6 +29,8 @@ public class MahjongClientRoom : MonoBehaviour
     
     public MahjongAsset asset;
     public Texture[] textures;
+
+    public Finish finish;
 
     public Button chow;
     public Button pong;
@@ -54,92 +64,181 @@ public class MahjongClientRoom : MonoBehaviour
             MahjongAsset asset;
             Transform transform;
             float offset = width * (count * 0.5f - 0.5f), temp;
-            for (int i = 0; i < count; ++i)
+            int i, j;
+            for (i = 0; i < count; ++i)
             {
                 temp = i * width - offset;
 
                 //Right
-                asset = Instantiate(this.asset);
-                transform = asset == null ? null : asset.transform;
-                if (transform != null)
+                j = (count << 1) * 0 + (i << 1);
+
+                asset = __instances[j];
+                if (asset == null)
                 {
-                    transform.eulerAngles = new Vector3(-90.0f, 90.0f, 0.0f);
-                    transform.position = new Vector3(size, length * 2.0f, -temp);
-                    
-                    __instances[(count << 1) * 0 + (i << 1) + 0] = asset;
+                    asset = Instantiate(this.asset);
+                    __instances[j] = asset;
+                }
+                else
+                {
+                    asset.onDiscard = null;
+                    asset.onSelected = null;
                 }
 
-                asset = Instantiate(this.asset);
                 transform = asset == null ? null : asset.transform;
                 if (transform != null)
                 {
+                    transform.SetParent(null, false);
+                    transform.eulerAngles = new Vector3(-90.0f, 90.0f, 0.0f);
+                    transform.position = new Vector3(size, length * 2.0f, -temp);
+                }
+                
+                asset = __instances[++j];
+                if (asset == null)
+                {
+                    asset = Instantiate(this.asset);
+                    __instances[j] = asset;
+                }
+                else
+                {
+                    asset.onDiscard = null;
+                    asset.onSelected = null;
+                }
+
+                transform = asset == null ? null : asset.transform;
+                if (transform != null)
+                {
+                    transform.SetParent(null, false);
                     transform.eulerAngles = new Vector3(-90.0f, 90.0f, 0.0f);
                     transform.position = new Vector3(size, length, -temp);
-                    
-                    __instances[(count << 1) * 0 + (i << 1) + 1] = asset;
                 }
 
                 //Down
-                asset = Instantiate(this.asset);
-                transform = asset == null ? null : asset.transform;
-                if (transform != null)
+                j = (count << 1) * 1 + (i << 1);
+
+                asset = __instances[j];
+                if (asset == null)
                 {
-                    transform.eulerAngles = new Vector3(-90.0f, 180.0f, 0.0f);
-                    transform.position = new Vector3(-temp, length * 2.0f, -size);
-                    
-                    __instances[(count << 1) * 1 + (i << 1) + 0] = asset;
+                    asset = Instantiate(this.asset);
+                    __instances[j] = asset;
+                }
+                else
+                {
+                    asset.onDiscard = null;
+                    asset.onSelected = null;
                 }
 
-                asset = Instantiate(this.asset);
                 transform = asset == null ? null : asset.transform;
                 if (transform != null)
                 {
+                    transform.SetParent(null, false);
+                    transform.eulerAngles = new Vector3(-90.0f, 180.0f, 0.0f);
+                    transform.position = new Vector3(-temp, length * 2.0f, -size);
+                }
+                
+                asset = __instances[++j];
+                if (asset == null)
+                {
+                    asset = Instantiate(this.asset);
+                    __instances[j] = asset;
+                }
+                else
+                {
+                    asset.onDiscard = null;
+                    asset.onSelected = null;
+                }
+                
+                transform = asset == null ? null : asset.transform;
+                if (transform != null)
+                {
+                    transform.SetParent(null, false);
                     transform.eulerAngles = new Vector3(-90.0f, 180.0f, 0.0f);
                     transform.position = new Vector3(-temp, length, -size);
-                    
-                    __instances[(count << 1) * 1 + (i << 1) + 1] = asset;
                 }
 
                 //Left
-                asset = Instantiate(this.asset);
-                transform = asset == null ? null : asset.transform;
-                if (transform != null)
+                j = (count << 1) * 2 + (i << 1);
+
+                asset = __instances[j];
+                if (asset == null)
                 {
-                    transform.eulerAngles = new Vector3(-90.0f, -90.0f, 0.0f);
-                    transform.position = new Vector3(-size, length * 2.0f, temp);
-                    
-                    __instances[(count << 1) * 2 + (i << 1) + 0] = asset;
+                    asset = Instantiate(this.asset);
+                    __instances[j] = asset;
+                }
+                else
+                {
+                    asset.onDiscard = null;
+                    asset.onSelected = null;
                 }
 
-                asset = Instantiate(this.asset);
                 transform = asset == null ? null : asset.transform;
                 if (transform != null)
                 {
+                    transform.SetParent(null, false);
+                    transform.eulerAngles = new Vector3(-90.0f, -90.0f, 0.0f);
+                    transform.position = new Vector3(-size, length * 2.0f, temp);
+                }
+
+                asset = __instances[++j];
+                if (asset == null)
+                {
+                    asset = Instantiate(this.asset);
+                    __instances[j] = asset;
+                }
+                else
+                {
+                    asset.onDiscard = null;
+                    asset.onSelected = null;
+                }
+
+                transform = asset == null ? null : asset.transform;
+                if (transform != null)
+                {
+                    transform.SetParent(null, false);
                     transform.eulerAngles = new Vector3(-90.0f, -90.0f, 0.0f);
                     transform.position = new Vector3(-size, length, temp);
-                    
-                    __instances[(count << 1) * 2 + (i << 1) + 1] = asset;
                 }
 
                 //Up
-                asset = Instantiate(this.asset);
-                transform = asset == null ? null : asset.transform;
-                if (transform != null)
+                j = (count << 1) * 3 + (i << 1);
+
+                asset = __instances[j];
+                if (asset == null)
                 {
-                    transform.eulerAngles = new Vector3(-90.0f, 0.0f, 0.0f);
-                    transform.position = new Vector3(temp, length * 2.0f, size);
-                    
-                    __instances[(count << 1) * 3 + (i << 1) + 0] = asset;
+                    asset = Instantiate(this.asset);
+                    __instances[j] = asset;
+                }
+                else
+                {
+                    asset.onDiscard = null;
+                    asset.onSelected = null;
                 }
 
-                asset = Instantiate(this.asset);
                 transform = asset == null ? null : asset.transform;
                 if (transform != null)
                 {
+                    transform.SetParent(null, false);
+                    transform.eulerAngles = new Vector3(-90.0f, 0.0f, 0.0f);
+                    transform.position = new Vector3(temp, length * 2.0f, size);
+                }
+
+                asset = __instances[++j];
+                if (asset == null)
+                {
+                    asset = Instantiate(this.asset);
+                    __instances[j] = asset;
+                }
+                else
+                {
+                    asset.onDiscard = null;
+                    asset.onSelected = null;
+                }
+
+                transform = asset == null ? null : asset.transform;
+                if (transform != null)
+                {
+                    transform.SetParent(null, false);
                     transform.eulerAngles = new Vector3(-90.0f, 0.0f, 0.0f);
                     transform.position = new Vector3(temp, length, size);
-                    
-                    __instances[(count << 1) * 3 + (i << 1) + 1] = asset;
                 }
             }
         }

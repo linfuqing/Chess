@@ -167,12 +167,40 @@ namespace ZG.Network.Lobby
             }
 
             if (connectionId >= 0)
-                Send(connectionId, (short)HostMessageType.RoomInfo, new RoomMessage((short)nextNodeIndex, (short)playerIndex, (short)roomIndex, (short)room.length, (short)room.count));
+            {
+                Send(connectionId, (short)HostMessageType.RoomInfo, new RoomInfoMessage((short)roomIndex, (short)room.length, (short)room.count));
+
+                PlayerInfoMessage message = new PlayerInfoMessage((short)nextNodeIndex, (short)roomIndex, (short)playerIndex);
+                Send(connectionId, (short)HostMessageType.PlayerInfo, message);
+
+                IEnumerable<KeyValuePair<int, ZG.Network.Node>> temp = GetRoom(roomIndex);
+                if(temp != null)
+                {
+                    short index;
+                    Node node;
+                    Network.Node instance;
+                    foreach (KeyValuePair<int, Network.Node> pair in temp)
+                    {
+                        instance = pair.Value;
+                        if(instance != null)
+                        {
+                            index = instance.index;
+                            if (GetNode(index, out node))
+                            {
+                                if (node.connectionId >= 0)
+                                    Send(node.connectionId, (short)HostMessageType.PlayerInfo, message);
+
+                                Send(connectionId, (short)HostMessageType.PlayerInfo, new PlayerInfoMessage(index, message.roomIndex, (short)pair.Key));
+                            }
+                        }
+                    }
+                }
+            }
             
             return true;
         }
 
-        protected override bool _Unregister(int index)
+        protected override bool _Unregister(NetworkReader reader, int connectionId, short index)
         {
             Node node;
             if (!GetNode(index, out node))
@@ -185,15 +213,63 @@ namespace ZG.Network.Lobby
             if (!__rooms.TryGetValue(node.roomIndex, out room) || room == null)
                 return false;
 
-            Lobby.Node temp = Get(index) as Lobby.Node;
+            Lobby.Node instance = Get(index) as Lobby.Node;
+            int count = instance == null ? 0 : instance._count;
             while (room.NotReady(index))
             {
-                if (temp != null)
+                if (instance != null)
                 {
-                    --temp._count;
+                    --instance._count;
 
-                    if (temp._onNotReady != null)
-                        temp._onNotReady();
+                    if (instance._onNotReady != null)
+                        instance._onNotReady();
+                }
+            }
+
+            count -= instance == null ? 0 : instance._count;
+            if (count > 0)
+            {
+                IEnumerable<KeyValuePair<int, Network.Node>> temp = GetRoom(node.roomIndex);
+                if (room != null)
+                {
+                    connectionId = connectionId < 0 ? node.connectionId : -1;
+
+                    NetworkWriter writer = new NetworkWriter();
+                    writer.Write((short)HostMessageHandle.NotReady);
+                    writer.Write(new NotReadyMessage());
+                    HostMessage hostMessage = new HostMessage(index, writer.Position, writer.AsArray());
+                    int i;
+                    Network.Node target;
+                    foreach (KeyValuePair<int, Network.Node> pair in temp)
+                    {
+                        target = pair.Value;
+                        if (target != null && GetNode(target.index, out node) && node.connectionId >= 0 && node.connectionId != connectionId)
+                        {
+                            for (i = 0; i < count; ++i)
+                                Send(node.connectionId, (short)Network.HostMessageType.Rpc, hostMessage);
+                        }
+                    }
+
+                    IEnumerable<int> neighborRoomIndices = GetNeighborRoomIndices(node.roomIndex);
+                    if (neighborRoomIndices != null)
+                    {
+                        foreach (int neighborRoomIndex in neighborRoomIndices)
+                        {
+                            temp = GetRoom(neighborRoomIndex);
+                            if (temp == null)
+                                continue;
+
+                            foreach (KeyValuePair<int, Network.Node> pair in temp)
+                            {
+                                target = pair.Value;
+                                if (target != null && GetNode(target.index, out node) && node.connectionId >= 0 && node.connectionId != connectionId)
+                                {
+                                    for (i = 0; i < count; ++i)
+                                        Send(node.connectionId, (short)Network.HostMessageType.Rpc, hostMessage);
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -235,7 +311,7 @@ namespace ZG.Network.Lobby
                         {
                             hostMessage.index = instance.index;
                             for (i = 0; i < instance._count; ++i)
-                                NetworkServer.SendToClient(node.connectionId, (short)Network.HostMessageType.Rpc, hostMessage);
+                                Send(node.connectionId, (short)Network.HostMessageType.Rpc, hostMessage);
                         }
                     }
 
@@ -255,7 +331,7 @@ namespace ZG.Network.Lobby
                                 {
                                     hostMessage.index = instance.index;
                                     for (i = 0; i < instance._count; ++i)
-                                        NetworkServer.SendToClient(node.connectionId, (short)Network.HostMessageType.Rpc, hostMessage);
+                                        Send(node.connectionId, (short)Network.HostMessageType.Rpc, hostMessage);
                                 }
                             }
                         }

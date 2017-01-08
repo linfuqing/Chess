@@ -29,6 +29,44 @@ public class MahjongClient : Client
         RegisterHandler((short)MahjongNetworkMessageType.TileCodes, __OnTileCodes);
         RegisterHandler((short)MahjongNetworkMessageType.RuleNodes, __OnRuleNodes);
     }
+
+    private void __OnReady()
+    {
+        MahjongClientRoom room = MahjongClientRoom.instance;
+        if (room != null)
+        {
+            if (room.finish.root != null)
+                room.finish.root.SetActive(false);
+        }
+
+        Node node = localPlayer as Node;
+        if (node != null)
+            node.Ready();
+    }
+
+    private void __OnNotReady(int roomIndex, int count)
+    {
+        if (count == 0)
+        {
+            MahjongClientRoom room = MahjongClientRoom.instance;
+            if (room != null)
+            {
+                if (room.finish.root != null)
+                    room.finish.root.SetActive(true);
+
+                if (room.finish.ready != null)
+                {
+                    Button.ButtonClickedEvent onClick = room.finish.ready.onClick;
+                    if (onClick == null)
+                        onClick = new Button.ButtonClickedEvent();
+                    else
+                        onClick.RemoveAllListeners();
+
+                    onClick.AddListener(__OnReady);
+                }
+            }
+        }
+    }
     
     private void __OnTileCodes(NetworkMessage message)
     {
@@ -92,6 +130,9 @@ public class MahjongClient : Client
                     kongIndices.Add(index);
                     break;
                 case Mahjong.RuleType.Win:
+                case Mahjong.RuleType.SelfDraw:
+                case Mahjong.RuleType.BreakKong:
+                case Mahjong.RuleType.OverKong:
                     if (winIndices == null)
                         winIndices = new List<int>();
 
@@ -215,5 +256,10 @@ public class MahjongClient : Client
             if (gameObject != null)
                 gameObject.SetActive(false);
         }
+    }
+
+    void Awake()
+    {
+        onNotReady += __OnNotReady;
     }
 }

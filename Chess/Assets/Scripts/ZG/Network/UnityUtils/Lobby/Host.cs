@@ -4,7 +4,8 @@ namespace ZG.Network.Lobby
 {
     public enum HostMessageType : short
     {
-        RoomInfo = 200
+        RoomInfo = 200,
+        PlayerInfo
     }
 
     public enum HostMessageHandle : short
@@ -71,7 +72,7 @@ namespace ZG.Network.Lobby
                     count = 0;
 
                 __players.Insert(index, ++count);
-                if (__players.count >= __length)
+                if (__players.count >= __length && __count == 0)
                     __count = 1;
             }
             else
@@ -127,26 +128,41 @@ namespace ZG.Network.Lobby
         }
     }
 
-    public class RoomMessage : MessageBase
+    public class RoomInfoMessage : MessageBase
     {
         public short index;
-        public short playerIndex;
-        public short roomIndex;
-        public short roomLength;
-        public short roomCount;
+        public short length;
+        public short count;
 
-        public RoomMessage()
+        public RoomInfoMessage()
         {
 
         }
 
-        public RoomMessage(short index, short playerIndex, short roomIndex, short roomLength, short roomCount)
+        public RoomInfoMessage(short index, short length, short count)
         {
             this.index = index;
-            this.playerIndex = playerIndex;
+            this.length = length;
+            this.count = count;
+        }
+    }
+
+    public class PlayerInfoMessage : MessageBase
+    {
+        public short index;
+        public short roomIndex;
+        public short playerIndex;
+
+        public PlayerInfoMessage()
+        {
+
+        }
+
+        public PlayerInfoMessage(short index, short roomIndex, short playerIndex)
+        {
+            this.index = index;
             this.roomIndex = roomIndex;
-            this.roomLength = roomLength;
-            this.roomCount = roomCount;
+            this.playerIndex = playerIndex;
         }
     }
 }

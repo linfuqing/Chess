@@ -87,7 +87,29 @@ public class MahjongClientPlayer : Node
 
     public void Clear()
     {
+        __drawCount = 0;
+        __discardCount = 0;
+        __scoreCount = 0;
+        __groupCount = 0;
+        __coolDown = 0;
+        __holdTime = 0;
+        __asset = null;
+        __handle = null;
 
+        if (__caches != null)
+            __caches.Clear();
+
+        if (__handles != null)
+            __handles.Clear();
+
+        if (__selectors != null)
+            __selectors.Clear();
+
+        if (__selectedAssets != null)
+            __selectedAssets.Clear();
+
+        if (__groups != null)
+            __groups.Clear();
     }
     
     public void Unselect()

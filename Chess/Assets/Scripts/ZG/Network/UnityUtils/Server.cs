@@ -298,6 +298,18 @@ namespace ZG.Network
             NetworkServer.Shutdown();
         }
 
+        public bool Unregister(short index, NetworkReader reader)
+        {
+            if (__nodes == null)
+                return false;
+
+            Node node;
+            if (!__nodes.TryGetValue(index, out node))
+                return false;
+
+            return __Unregister(reader, node.connectionId, index);
+        }
+
         public bool Register(NetworkReader reader, Network.Node npc)
         {
             short type;
@@ -407,88 +419,6 @@ namespace ZG.Network
             return true;
         }
         
-        public bool Unregister(short index)
-        {
-            bool result = true;
-            if (__nodes == null || __rooms == null)
-                result = false;
-            else
-            {
-                Node node;
-                if (__nodes.TryGetValue(index, out node))
-                {
-                    Room room;
-                    if (__rooms.TryGetValue(node.roomIndex, out room))
-                    {
-                        Network.Node player = room == null ? null : room.Get(node.playerIndex);
-                        if (onUnregistered != null)
-                            onUnregistered(player);
-
-                        if (player != null)
-                        {
-                            if (player._onDestroy != null)
-                                player._onDestroy();
-                        }
-
-                        if (__nodeIndices != null)
-                        {
-                            Pool<int> indices;
-                            if (__nodeIndices.TryGetValue(node.connectionId, out indices) && indices != null)
-                            {
-                                if (indices.RemoveAt(node.connectionIndex))
-                                {
-                                    if (indices.count < 1)
-                                        __nodeIndices.Remove(node.connectionId);
-                                }
-                                else
-                                    result = false;
-                            }
-                        }
-
-                        if (_Unregister(index))
-                        {
-                            if (player != null)
-                                Destroy(player.gameObject);
-
-                            result = room != null && room.Delete(node.playerIndex) && result;
-
-
-                            HostMessage message = __GetMessage(index, 0, null);
-                            if (room == null || room.count < 1)
-                                __rooms.RemoveAt(node.roomIndex);
-                            else
-                                room.Send((short)HostMessageType.Unregister, message, null);
-
-                            IEnumerable<int> neighborRoomIndices = room.neighborRoomIndices;
-                            if (neighborRoomIndices != null)
-                            {
-                                foreach (int neighborRoomIndex in neighborRoomIndices)
-                                {
-                                    if (__rooms.TryGetValue(neighborRoomIndex, out room) && room != null)
-                                        room.Send((short)HostMessageType.Unregister, message, null);
-                                }
-                            }
-
-                            result = __nodes.RemoveAt(index) && result;
-                        }
-                        else
-                        {
-                            node.connectionId = -1;
-                            node.connectionIndex = -1;
-
-                            __nodes.Insert(index, node);
-                        }
-                    }
-                    else
-                        result = false;
-                }
-                else
-                    result = false;
-            }
-
-            return result;
-        }
-
         public void RegisterHandler(short messageType, NetworkMessageDelegate handler)
         {
             NetworkServer.RegisterHandler(messageType, handler);
@@ -1080,11 +1010,93 @@ namespace ZG.Network
             return true;
         }
 
-        protected virtual bool _Unregister(int index)
+        protected virtual bool _Unregister(NetworkReader reader, int connectionId, short index)
         {
             return true;
         }
+        
+        private bool __Unregister(NetworkReader reader, int connectionId, short index)
+        {
+            bool result = true;
+            if (__nodes == null || __rooms == null)
+                result = false;
+            else
+            {
+                Node node;
+                if (__nodes.TryGetValue(index, out node))
+                {
+                    Room room;
+                    if (__rooms.TryGetValue(node.roomIndex, out room))
+                    {
+                        Network.Node player = room == null ? null : room.Get(node.playerIndex);
+                        if (onUnregistered != null)
+                            onUnregistered(player);
 
+                        if (player != null)
+                        {
+                            if (player._onDestroy != null)
+                                player._onDestroy();
+                        }
+
+                        if (__nodeIndices != null)
+                        {
+                            Pool<int> indices;
+                            if (__nodeIndices.TryGetValue(node.connectionId, out indices) && indices != null)
+                            {
+                                if (indices.RemoveAt(node.connectionIndex))
+                                {
+                                    if (indices.count < 1)
+                                        __nodeIndices.Remove(node.connectionId);
+                                }
+                                else
+                                    result = false;
+                            }
+                        }
+
+                        if (_Unregister(reader, connectionId, index))
+                        {
+                            if (player != null)
+                                Destroy(player.gameObject);
+
+                            result = room != null && room.Delete(node.playerIndex) && result;
+
+
+                            HostMessage message = __GetMessage(index, 0, null);
+                            if (room == null || room.count < 1)
+                                __rooms.RemoveAt(node.roomIndex);
+                            else
+                                room.Send((short)HostMessageType.Unregister, message, null);
+
+                            IEnumerable<int> neighborRoomIndices = room.neighborRoomIndices;
+                            if (neighborRoomIndices != null)
+                            {
+                                foreach (int neighborRoomIndex in neighborRoomIndices)
+                                {
+                                    if (__rooms.TryGetValue(neighborRoomIndex, out room) && room != null)
+                                        room.Send((short)HostMessageType.Unregister, message, null);
+                                }
+                            }
+
+                            result = __nodes.RemoveAt(index) && result;
+                        }
+                        else
+                        {
+                            node.connectionId = -1;
+                            node.connectionIndex = -1;
+
+                            __nodes.Insert(index, node);
+                        }
+                    }
+                    else
+                        result = false;
+                }
+                else
+                    result = false;
+            }
+
+            return result;
+        }
+        
         private void __OnRegistered(NetworkMessage message)
         {
             NetworkConnection connection = message == null ? null : message.conn;
@@ -1285,12 +1297,8 @@ namespace ZG.Network
 #endif
 
             HostMessage temp = message.ReadMessage<HostMessage>();
-            Node node;
             if (temp == null || 
-                __nodes == null || 
-                !__nodes.TryGetValue(temp.index, out node) ||
-                node.connectionId != connection.connectionId ||
-                !Unregister(temp.index))
+                !__Unregister(temp.count > 0 ? new NetworkReader(temp.bytes) : null, connection.connectionId, temp.index))
             {
                 Debug.LogError("Unregister Fail.");
 
@@ -1354,9 +1362,10 @@ namespace ZG.Network
 
                 return;
             }
-            
-            foreach(short index in indices)
-                Unregister(index);
+
+            int[] temp = indices.ToArray();
+            foreach (short index in temp)
+                __Unregister(null, -1, index);
         }
         
         private NetworkWriter __GetWriter()

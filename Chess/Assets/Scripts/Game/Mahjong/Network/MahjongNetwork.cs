@@ -18,7 +18,8 @@ public enum MahjongNetworkRPCHandle
     Draw,
     Throw, 
     Try, 
-    Do
+    Do, 
+    Finish
 }
 
 

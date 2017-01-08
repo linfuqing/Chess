@@ -52,6 +52,7 @@ namespace ZG.Network.Lobby
             base.Create();
 
             RegisterHandler((short)HostMessageType.RoomInfo, __OnRoomInfo);
+            RegisterHandler((short)HostMessageType.PlayerInfo, __OnPlayerInfo);
         }
 
         private void __OnDisconnect(NetworkMessage message)
@@ -64,11 +65,12 @@ namespace ZG.Network.Lobby
             if (node == null || __players == null)
                 return;
 
-            Player player;
-            if (!__players.TryGetValue(node.index, out player))
-                return;
 
             int index = node.index;
+            Player player;
+            if (!__players.TryGetValue(index, out player))
+                return;
+
             __players.Remove(index);
 
             if (__rooms == null)
@@ -177,28 +179,35 @@ namespace ZG.Network.Lobby
 
         private void __OnRoomInfo(NetworkMessage message)
         {
-            RoomMessage roomMessage = message == null ? null : message.ReadMessage<RoomMessage>();
-            if (roomMessage == null)
+            RoomInfoMessage roomInfoMessage = message == null ? null : message.ReadMessage<RoomInfoMessage>();
+            if (roomInfoMessage == null)
                 return;
-
-            if (__players == null)
-                __players = new Dictionary<int, Player>();
-
-            __players[roomMessage.index] = new Player(roomMessage.playerIndex, roomMessage.roomIndex);
 
             if (__rooms == null)
                 __rooms = new Dictionary<int, Room>();
 
             Room room;
-            if (__rooms.TryGetValue(roomMessage.roomIndex, out room) && room != null)
+            if (__rooms.TryGetValue(roomInfoMessage.index, out room) && room != null)
             {
-                room.length = roomMessage.roomLength;
-                room.count = roomMessage.roomCount;
+                room.length = roomInfoMessage.length;
+                room.count = roomInfoMessage.count;
             }
             else
-                __rooms.Add(roomMessage.roomIndex, new Room(roomMessage.roomLength, roomMessage.roomCount));
+                __rooms.Add(roomInfoMessage.index, new Room(roomInfoMessage.length, roomInfoMessage.count));
         }
-        
+
+        private void __OnPlayerInfo(NetworkMessage message)
+        {
+            PlayerInfoMessage playerInfoMessage = message == null ? null : message.ReadMessage<PlayerInfoMessage>();
+            if (playerInfoMessage == null)
+                return;
+            
+            if (__players == null)
+                __players = new Dictionary<int, Player>();
+
+            __players[playerInfoMessage.index] = new Player(playerInfoMessage.playerIndex, playerInfoMessage.roomIndex);
+        }
+
         private void __Clear()
         {
             onDisconnect -= __OnDisconnect;

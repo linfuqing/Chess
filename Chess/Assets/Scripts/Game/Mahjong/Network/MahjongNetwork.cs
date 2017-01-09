@@ -19,9 +19,22 @@ public enum MahjongNetworkRPCHandle
     Throw, 
     Try, 
     Do, 
-    Finish
+    Score
 }
 
+public enum MahjongScoreType : byte
+{
+    AllPongHand, 
+    SimpleHand,
+    CleanHand,
+    PureHand,
+    GreatHand258, 
+    KongDraw,
+    FlowerDraw, 
+    Single,
+    HeavenlyHand,
+    EarthlyHand
+}
 
 public class NameMessage : MessageBase
 {

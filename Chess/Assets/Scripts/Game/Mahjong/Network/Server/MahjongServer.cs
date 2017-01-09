@@ -70,6 +70,24 @@ public class MahjongServer : Server
                 __room = room;
             }
 
+            public override int Score(Mahjong.RuleType type, int tileIndex, IEnumerable<Mahjong.Rule.WinFlag> winFlags)
+            {
+                NetworkWriter  writer = __instance == null ? null : __instance.RpcStart();
+
+                switch(type)
+                {
+                    case Mahjong.RuleType.Win:
+                    case Mahjong.RuleType.SelfDraw:
+                    case Mahjong.RuleType.BreakKong:
+                    case Mahjong.RuleType.OverKong:
+                        break;
+                    default:
+                        return 0;
+                }
+
+                return 0;
+            }
+
             public void SendRuleMessage(ReadOnlyCollection<Mahjong.RuleNode> ruleNodes)
             {
                 MahjongServer host = __instance == null ? null : __instance.host as MahjongServer;
@@ -414,7 +432,12 @@ public class MahjongServer : Server
                 {
                     while (true)
                     {
-                        if (player.isDraw)
+                        if (player.drawType == Mahjong.Player.DrawType.None)
+                        {
+                            if (!player.Draw())
+                                break;
+                        }
+                        else
                         {
                             ruleNodes = player.Start();
                             if (ruleNodes != null && ruleNodes.Count > 0)
@@ -511,8 +534,6 @@ public class MahjongServer : Server
                             
                             break;
                         }
-                        else if (!player.Draw())
-                            break;
                     }
                 }
 

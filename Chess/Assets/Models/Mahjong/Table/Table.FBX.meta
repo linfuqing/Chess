@@ -10,23 +10,43 @@ ModelImporter:
     100004: Line002
     100006: Object
     100008: //RootNode
+    100010: FX_E
+    100012: FX_N
+    100014: FX_S
+    100016: FX_W
     400000: Box001
     400002: Line001
     400004: Line002
     400006: Object
     400008: //RootNode
+    400010: FX_E
+    400012: FX_N
+    400014: FX_S
+    400016: FX_W
     2300000: Box001
     2300002: Line001
     2300004: Line002
     2300006: Object
+    2300008: FX_E
+    2300010: FX_N
+    2300012: FX_S
+    2300014: FX_W
     3300000: Box001
     3300002: Line001
     3300004: Line002
     3300006: Object
+    3300008: FX_E
+    3300010: FX_N
+    3300012: FX_S
+    3300014: FX_W
     4300000: Line001
     4300002: Box001
     4300004: Object
     4300006: Line002
+    4300008: FX_S
+    4300010: FX_E
+    4300012: FX_N
+    4300014: FX_W
   materials:
     importMaterials: 1
     materialName: 0

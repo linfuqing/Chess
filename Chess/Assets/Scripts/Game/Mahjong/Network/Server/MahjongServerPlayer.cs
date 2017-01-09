@@ -67,7 +67,7 @@ public class MahjongServerPlayer : ServerObject
     {
         RpcDo(playerIndex, type, group);
     }
-
+    
     private void RpcHold(float time)
     {
         NetworkWriter writer = RpcStart();

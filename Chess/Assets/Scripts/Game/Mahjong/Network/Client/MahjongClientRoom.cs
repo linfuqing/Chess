@@ -69,7 +69,8 @@ public class MahjongClientRoom : MonoBehaviour
     public Button kong;
     public Button win;
     public new Text name;
-    public Text[] texts;
+    public TextMesh time;
+    public Animator animator;
     
     private MahjongAsset[] __instances;
     private int __index;

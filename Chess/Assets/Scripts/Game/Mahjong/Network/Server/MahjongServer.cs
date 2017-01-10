@@ -918,7 +918,7 @@ public class MahjongServer : Server
         if (connection == null)
             return;
 
-        string name = Guid.NewGuid().ToString();
+        string name = nextRoomIndex.ToString("D6");
         if (CreateRoom(name) == -1)
             return;
 

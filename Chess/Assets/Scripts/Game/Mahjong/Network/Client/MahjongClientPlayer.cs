@@ -224,6 +224,19 @@ public class MahjongClientPlayer : Node
             CmdDiscard(tile.index);
         };
     }
+
+    private void __Reset()
+    {
+        MahjongClientRoom room = MahjongClientRoom.instance;
+        if (room != null)
+        {
+            if (room.animator != null)
+                room.animator.SetTrigger("Reset");
+
+            if (room.time != null)
+                room.time.text = string.Empty;
+        }
+    }
     
     private void __OnCreate()
     {
@@ -232,6 +245,17 @@ public class MahjongClientPlayer : Node
             Camera camera = Camera.main;
             if (camera != null)
                 camera.transform.SetParent(transform, false);
+
+            MahjongClientRoom room = MahjongClientRoom.instance;
+            if(room != null)
+            {
+                Transform transform = room.time == null ? null : room.time.transform;
+                if (transform != null)
+                {
+                    Vector3 eulerAngles = transform.eulerAngles;
+                    transform.eulerAngles = new Vector3(eulerAngles.x, eulerAngles.y - (type + 1) * 90.0f, eulerAngles.z);
+                }
+            }
         }
     }
     
@@ -565,7 +589,13 @@ public class MahjongClientPlayer : Node
 
     private void RpcHold(float time)
     {
+        MahjongClientRoom room = MahjongClientRoom.instance;
+        if (room != null && room.animator != null)
+            room.animator.SetTrigger(type.ToString());
+
         __holdTime = time + Time.time;
+
+        Invoke("__Reset", time);
     }
 
     private void RpcDraw(byte index, byte code)
@@ -760,25 +790,12 @@ public class MahjongClientPlayer : Node
         MahjongClientRoom room = MahjongClientRoom.instance;
         if (room == null)
             return;
-
-        if (room.texts != null)
+        
+        float time = Time.time;
+        if (time < __holdTime)
         {
-            MahjongClient host = base.host as MahjongClient;
-            MahjongClientPlayer player = host == null ? null : host.localPlayer as MahjongClientPlayer;
-            if (player != null)
-            {
-                int index = (4 + type - player.type) & 3;
-                if (index >= 0 && index < room.texts.Length)
-                {
-                    Text text = room.texts[index];
-                    if (text != null)
-                    {
-                        float time = Time.time;
-
-                        text.text = time > __holdTime ? string.Empty : Mathf.RoundToInt(__holdTime - time).ToString();
-                    }
-                }
-            }
+            if (room.time != null)
+                room.time.text = Mathf.RoundToInt(__holdTime - time).ToString();
         }
 
         __coolDown -= Time.deltaTime;

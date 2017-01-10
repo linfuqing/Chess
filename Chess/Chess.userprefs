@@ -1,0 +1,12 @@
+﻿<Properties StartupItem="Chess.csproj">
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug" />
+  <MonoDevelop.Ide.Workbench ActiveDocument="Assets\Scripts\ZG\Network\UnityUtils\Lobby\Server.cs">
+    <Files>
+      <File FileName="Assets\Scripts\ZG\Network\UnityUtils\Lobby\Server.cs" Line="184" Column="35" />
+    </Files>
+  </MonoDevelop.Ide.Workbench>
+  <MonoDevelop.Ide.DebuggingService.Breakpoints>
+    <BreakpointStore />
+  </MonoDevelop.Ide.DebuggingService.Breakpoints>
+  <MonoDevelop.Ide.DebuggingService.PinnedWatches />
+</Properties>

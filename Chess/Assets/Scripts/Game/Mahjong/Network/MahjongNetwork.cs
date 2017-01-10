@@ -24,6 +24,8 @@ public enum MahjongNetworkRPCHandle
 
 public enum MahjongScoreType : byte
 {
+    Normal,
+    SevenPairsHand, 
     AllPongHand, 
     SimpleHand,
     CleanHand,

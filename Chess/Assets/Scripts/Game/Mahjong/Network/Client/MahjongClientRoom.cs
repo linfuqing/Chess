@@ -5,10 +5,42 @@ using UnityEngine.UI;
 public class MahjongClientRoom : MonoBehaviour
 {
     [Serializable]
-    public struct Finish
+    public struct Tiles
+    {
+        public RawImage[] images;
+    }
+
+    [Serializable]
+    public struct HandTiles
+    {
+        public Tiles tiles;
+        public Tiles[] groups;
+    }
+
+    [Serializable]
+    public struct Player
+    {
+        public Text score;
+        public HandTiles handTiles;
+        public GameObject[] scores;
+        public GameObject[] winners;
+        public GameObject[] losers;
+    }
+
+    [Serializable]
+    public struct Panel
     {
         public GameObject root;
         public Button ready;
+        public Player[] players;
+    }
+
+    [Serializable]
+    public struct Finish
+    {
+        public GameObject root;
+        public Panel normal;
+        public Panel win;
     }
 
     public static MahjongClientRoom instance;

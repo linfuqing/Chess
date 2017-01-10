@@ -37,6 +37,12 @@ public class MahjongClient : Client
         {
             if (room.finish.root != null)
                 room.finish.root.SetActive(false);
+
+            if (room.finish.normal.root != null)
+                room.finish.normal.root.SetActive(false);
+
+            if (room.finish.win.root != null)
+                room.finish.win.root.SetActive(false);
         }
 
         Node node = localPlayer as Node;
@@ -51,12 +57,25 @@ public class MahjongClient : Client
             MahjongClientRoom room = MahjongClientRoom.instance;
             if (room != null)
             {
-                if (room.finish.root != null)
+                if (room.finish.root != null && 
+                    (room.finish.normal.root == null || !room.finish.normal.root.activeSelf) &&
+                    (room.finish.win.root == null || !room.finish.win.root.activeSelf))
                     room.finish.root.SetActive(true);
 
-                if (room.finish.ready != null)
+                if (room.finish.normal.ready != null)
                 {
-                    Button.ButtonClickedEvent onClick = room.finish.ready.onClick;
+                    Button.ButtonClickedEvent onClick = room.finish.normal.ready.onClick;
+                    if (onClick == null)
+                        onClick = new Button.ButtonClickedEvent();
+                    else
+                        onClick.RemoveAllListeners();
+
+                    onClick.AddListener(__OnReady);
+                }
+
+                if (room.finish.win.ready != null)
+                {
+                    Button.ButtonClickedEvent onClick = room.finish.win.ready.onClick;
                     if (onClick == null)
                         onClick = new Button.ButtonClickedEvent();
                     else

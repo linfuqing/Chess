@@ -1236,6 +1236,14 @@ public class Mahjong
             }
         }
 
+        public IEnumerable<RuleNode> ruleNodes
+        {
+            get
+            {
+                return __ruleNodes;
+            }
+        }
+
         public IEnumerable<Group> groups
         {
             get
@@ -1252,7 +1260,7 @@ public class Mahjong
             __handleTileIndex = -1;
         }
 
-        public virtual int Score(RuleType type, int tileIndex, IEnumerable<Rule.WinFlag> winFlags)
+        public virtual int Score(RuleType type, int playerIndex, IEnumerable<Rule.WinFlag> winFlags)
         {
             return 0;
         }
@@ -2062,9 +2070,14 @@ public class Mahjong
                     int tileIndex;
                     if (player.__poolTileIndices == null || !player.__poolTileIndices.TryGetValue(player.__poolTileIndex, out tileIndex))
                         return -1;
-                    
-                    temp = Score(RuleType.Win, tileIndex, __winFlags[ruleNode.index]);
 
+                    instance = new LinkedListNode<int>(tileIndex);
+                    __Add(instance);
+                    temp = Score(RuleType.Win, playerIndex, __winFlags[ruleNode.index]);
+                    /*if (__handTileIndices != null)
+                        __handTileIndices.Remove(instance);*/
+
+                    __drawType = DrawType.Normal;
                     __score += temp;
 
                     int score = temp;
@@ -2077,8 +2090,12 @@ public class Mahjong
                         winFlags = player == null ? null : player.Check(tileIndex);
                         if (winFlags != null)
                         {
-                            temp = player.Score(RuleType.Win, tileIndex, winFlags);
+                            player.__Add(instance);
+                            temp = player.Score(RuleType.Win, playerIndex, winFlags);
+                            /*if (player.__handTileIndices != null)
+                                player.__handTileIndices.Remove(instance);*/
 
+                            player.__drawType = DrawType.Normal;
                             player.__score += temp;
 
                             score += temp;
@@ -2099,7 +2116,7 @@ public class Mahjong
                     if (ruleNode.index < 0 || __winFlags == null || __winFlags.Count < ruleNode.index)
                         return -1;
 
-                    temp = Score(RuleType.SelfDraw, GetHandTileIndex(__handleTileIndex), __winFlags[ruleNode.index]);
+                    temp = Score(RuleType.SelfDraw, __index, __winFlags[ruleNode.index]);
                     __score += temp;
 
                     count = Math.Min(4, __mahjong.__players == null ? 0 : __mahjong.__players.Length);
@@ -2132,13 +2149,16 @@ public class Mahjong
                     player = __mahjong.__players[playerIndex];
                     if (player == null)
                         return -1;
-                    
-                    temp = Score(RuleType.BreakKong, player.GetHandTileIndex(player.__handleTileIndex), __winFlags[ruleNode.index]);
-                    __score += temp;
 
+                    instance = new LinkedListNode<int>(player.GetHandTileIndex(player.__handleTileIndex));
+                    __Add(instance);
+                    temp = Score(RuleType.BreakKong, playerIndex, __winFlags[ruleNode.index]);
+                    __score += temp;
                     
                     player.__score -= temp;
                     player.__handleTileIndex = -1;
+
+                    __drawType = DrawType.Normal;
 
                     __Clear();
 
@@ -2150,18 +2170,19 @@ public class Mahjong
                 case RuleType.OverKong:
                     if (ruleNode.index < 0 || __winFlags == null || __winFlags.Count < ruleNode.index)
                         return -1;
-
-                    temp = Score(RuleType.OverKong, GetHandTileIndex(__handleTileIndex), __winFlags[ruleNode.index]);
+                    
+                    temp = Score(RuleType.OverKong, __kongPlayerIndex, __winFlags[ruleNode.index]);
                     __score += temp;
 
-                    playerIndex = __kongPlayerIndex;
                     if (__mahjong.__players != null &&
-                    __mahjong.__players.Length > playerIndex)
+                    __mahjong.__players.Length > __kongPlayerIndex)
                     {
-                        player = __mahjong.__players[playerIndex];
+                        player = __mahjong.__players[__kongPlayerIndex];
                         if (player != null)
                             player.__score -= temp;
                     }
+                    
+                    playerIndex = __kongPlayerIndex;
 
                     __kongPlayerIndex = -1;
 

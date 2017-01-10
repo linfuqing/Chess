@@ -70,22 +70,99 @@ public class MahjongServer : Server
                 __room = room;
             }
 
-            public override int Score(Mahjong.RuleType type, int tileIndex, IEnumerable<Mahjong.Rule.WinFlag> winFlags)
+            public override int Score(Mahjong.RuleType type, int playerIndex, IEnumerable<Mahjong.Rule.WinFlag> winFlags)
             {
-                NetworkWriter  writer = __instance == null ? null : __instance.RpcStart();
+                MahjongServer host = instance == null ? null : instance.host as MahjongServer;
+                if (host == null)
+                    return 0;
+                
+                NetworkWriter  writer = __instance.RpcStart();
+                if (writer != null)
+                {
+                    writer.Write((byte)((int)type - (int)Mahjong.RuleType.Win));
+                    writer.Write((byte)(((int)type + 4 - index) & 3));
+                }
 
+                int score = 0;
                 switch(type)
                 {
                     case Mahjong.RuleType.Win:
                     case Mahjong.RuleType.SelfDraw:
                     case Mahjong.RuleType.BreakKong:
                     case Mahjong.RuleType.OverKong:
+                        if(type == Mahjong.RuleType.SelfDraw)
+                        {
+                            if (drawType == DrawType.Flower)
+                                score += __Write(MahjongScoreType.FlowerDraw, writer, host.scores);
+                        }
+
+                        if(type == Mahjong.RuleType.OverKong)
+                        {
+                            score += __Write(MahjongScoreType.KongDraw, writer, host.scores);
+
+                            if (drawType == DrawType.Flower)
+                                score += __Write(MahjongScoreType.FlowerDraw, writer, host.scores);
+                        }
                         break;
                     default:
+                        if (writer != null)
+                            writer.Write((byte)255);
                         return 0;
                 }
 
-                return 0;
+                IEnumerable<int> handTileIndices = base.handTileIndices;
+                if (winFlags != null)
+                {
+                    foreach (Mahjong.Rule.WinFlag winFlag in winFlags)
+                    {
+                        switch(winFlag.index)
+                        {
+                            case 0:
+                                score += __Write(MahjongScoreType.AllPongHand, writer, host.scores);
+
+                                if(Mahjong.Rule.IsGreatHand258(handTileIndices))
+                                    score += __Write(MahjongScoreType.GreatHand258, writer, host.scores);
+
+                                break;
+                            case 1:
+                            case 2:
+                            case 3:
+                                score += __Write(MahjongScoreType.Normal, writer, host.scores);
+                                break;
+                            case 4:
+                                break;
+                            case 5:
+                                score += __Write(MahjongScoreType.SevenPairsHand, writer, host.scores);
+                                break;
+                        }
+                    }
+                }
+
+                if (Mahjong.Rule.IsCleanHand(handTileIndices))
+                    score += __Write(MahjongScoreType.CleanHand, writer, host.scores);
+
+                if (Mahjong.Rule.IsPureHand(handTileIndices))
+                    score += __Write(MahjongScoreType.PureHand, writer, host.scores);
+
+                if (Mahjong.Rule.IsSimpleHand(handTileIndices))
+                    score += __Write(MahjongScoreType.SimpleHand, writer, host.scores);
+
+                if(count < 2)
+                    score += __Write(MahjongScoreType.Single, writer, host.scores);
+
+                Mahjong mahjong = base.mahjong;
+                if(mahjong != null)
+                {
+                    if(poolTileIndexCount < 1)
+                        score += __Write(index == mahjong.dealerIndex ? MahjongScoreType.HeavenlyHand : MahjongScoreType.EarthlyHand, writer, host.scores);
+                }
+
+                if (writer != null)
+                    writer.Write((byte)255);
+
+                instance.RpcEnd((short)MahjongNetworkRPCHandle.Score);
+
+                return score;
             }
 
             public void SendRuleMessage(ReadOnlyCollection<Mahjong.RuleNode> ruleNodes)
@@ -130,7 +207,8 @@ public class MahjongServer : Server
                 
                 int playerIndex;
                 Mahjong.RuleNode ruleNode = Get(index);
-                byte group = (byte)End(index, handler, out playerIndex);
+                int groupIndex = End(index, handler, out playerIndex);
+                byte group = groupIndex >= 0 && groupIndex < groupCount ? (byte)groupIndex : (byte)255;
                 if (__instance != null)
                 {
                     if (__tiles != null)
@@ -214,6 +292,22 @@ public class MahjongServer : Server
                             host.SendTileCodeMessage(node.connectionId, (byte)__tileCodes.Length, __tileCodes);
                     }
                 }
+            }
+
+            private int __Write(MahjongScoreType type, NetworkWriter writer, int[] scores)
+            {
+                if ((int)(type) >= (scores == null ? 0 : scores.Length))
+                    return 0;
+                
+                int result = scores[(int)type];
+                if (writer != null)
+                {
+                    writer.Write((byte)type);
+
+                    writer.Write((byte)result);
+                }
+
+                return result;
             }
 
             private void __Add(int index)
@@ -580,6 +674,7 @@ public class MahjongServer : Server
         }
     }
 
+    public int[] scores;
     private Pool<string> __playerNames;
     private Pool<string> __roomNames;
     private Dictionary<string, Player> __playerMap;

@@ -334,16 +334,6 @@ public class MahjongClientRoom : MonoBehaviour
             main.Shutdown();
     }
 
-    void Start()
-    {
-        MahjongClientMain main = MahjongClientMain.instance;
-        if (main == null)
-            return;
-
-        if (name != null)
-            name.text = main.roomName;
-    }
-
     void OnEnable()
     {
         instance = this;

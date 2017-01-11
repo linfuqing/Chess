@@ -12,9 +12,10 @@ public class MahjongClientMain : MonoBehaviour
 
     public int menuSceneBuildIndex;
     public int roomSceneBuildIndex;
+    
+    public Action onError;
 
     private static string __uid = System.Guid.NewGuid().ToString();
-    private Action __onCreateComplete;
     private MahjongClient __client;
     private MahjongShuffleMessage __shuffleMessage;
     private Coroutine __coroutine;
@@ -27,19 +28,14 @@ public class MahjongClientMain : MonoBehaviour
             return __client;
         }
     }
-
-    public string roomName
-    {
-        get
-        {
-            return __roomName;
-        }
-    }
-
+    
     public void Shutdown()
     {
         if (__client != null)
+        {
+            __client.onDisconnect -= __OnDisconnect;
             __client.Shutdown();
+        }
 
         __coroutine = StartCoroutine(__LoadScene(menuSceneBuildIndex, null, __coroutine));
     }
@@ -47,41 +43,30 @@ public class MahjongClientMain : MonoBehaviour
     public void Create()
     {
         __client.onConnect += __OnConnect;
+        __client.onDisconnect += __OnDisconnect;
         __client.Create();
     }
     
-    public void CreateRoom()
+    public void JoinRoom(string name)
     {
         if (__client == null)
             return;
 
         if (__client.isConnected)
         {
+            __roomName = null;
+
             __client.RegisterHandler((short)MahjongNetworkMessageType.Room, __OnRoom);
-            __client.Send((short)MahjongNetworkMessageType.Room, new UnityEngine.Networking.NetworkSystem.EmptyMessage());
+            __client.Send((short)MahjongNetworkMessageType.Room, new NameMessage(name));
         }
-        else if(__onCreateComplete == null)
+        else if(__roomName == null)
         {
-            __onCreateComplete = CreateRoom;
+            __roomName = name;
 
             Create();
         }
     }
     
-    public void JoinRoom(string roomName)
-    {
-        __roomName = roomName;
-
-        if (__client.isConnected)
-            __JoinRoom();
-        else if (__onCreateComplete == null)
-        {
-            __onCreateComplete = __JoinRoom;
-
-            Create();
-        }
-    }
-
     private void __OnRegistered(Node node)
     {
         ZG.Network.Lobby.Node temp = node as ZG.Network.Lobby.Node;
@@ -99,20 +84,13 @@ public class MahjongClientMain : MonoBehaviour
 
         if (string.IsNullOrEmpty(nameMessage.name))
         {
-            if (__onCreateComplete == null)
+            if(__roomName == null)
                 __coroutine = StartCoroutine(__LoadScene(menuSceneBuildIndex, null, __coroutine));
             else
-            {
-                __onCreateComplete();
-                __onCreateComplete = null;
-            }
+                JoinRoom(__roomName);
         }
         else
-        {
-            __onCreateComplete = null;
-
             JoinRoom(nameMessage.name);
-        }
     }
 
     private void __OnRoom(NetworkMessage message)
@@ -120,10 +98,21 @@ public class MahjongClientMain : MonoBehaviour
         __client.UnregisterHandler((short)MahjongNetworkMessageType.Room);
 
         NameMessage nameMessage = message == null ? null : message.ReadMessage<NameMessage>();
-        if (nameMessage == null)
-            return;
+        if (nameMessage == null || string.IsNullOrEmpty(nameMessage.name))
+        {
+            if (onError != null)
+                onError();
 
-        JoinRoom(nameMessage.name);
+            return;
+        }
+
+        __coroutine = StartCoroutine(__LoadScene(roomSceneBuildIndex, delegate ()
+        {
+            __InitRoom(nameMessage.name);
+
+            __client.onRegistered += __OnRegistered;
+            __client.Register(new RegisterMessage(__uid, nameMessage.name));
+        }, __coroutine));
     }
 
     private void __OnShuffle(NetworkMessage message)
@@ -132,7 +121,7 @@ public class MahjongClientMain : MonoBehaviour
         if (__shuffleMessage == null)
             return;
 
-        __InitRoom();
+        __InitRoom(null);
     }
 
     private void __OnConnect(NetworkMessage message)
@@ -143,22 +132,15 @@ public class MahjongClientMain : MonoBehaviour
         __client.Send((short)MahjongNetworkMessageType.Player, new NameMessage(__uid));
     }
 
-    private void __JoinRoom()
+    private void __OnDisconnect(NetworkMessage message)
     {
-        __coroutine = StartCoroutine(__LoadScene(roomSceneBuildIndex, delegate ()
-        {
-            __InitRoom();
+        onError = null;
 
-            __client.onRegistered += __OnRegistered;
-            __client.Register(new RegisterMessage(__uid, __roomName));
-        }, __coroutine));
+        Invoke("Create", 0.0f);
     }
-
-    private void __InitRoom()
+    
+    private void __InitRoom(string name)
     {
-        if (__shuffleMessage == null)
-            return;
-        
         IEnumerable<Node> nodes = __client == null ? null : __client.nodes;
         if (nodes != null)
         {
@@ -174,10 +156,20 @@ public class MahjongClientMain : MonoBehaviour
         MahjongClientRoom room = MahjongClientRoom.instance;
         if (room != null)
         {
-            int handTileCount = 18;
-            int count = __shuffleMessage.point0 + __shuffleMessage.point1;
+            if (!string.IsNullOrEmpty(name))
+            {
+                if (room.name != null)
+                    room.name.text = name;
+            }
 
-            room.Init(handTileCount, ((count + 1) & 3) * handTileCount + count + __shuffleMessage.point2 + __shuffleMessage.point3);
+
+            if (__shuffleMessage != null)
+            {
+                int handTileCount = 18;
+                int count = __shuffleMessage.point0 + __shuffleMessage.point1;
+
+                room.Init(handTileCount, ((count + 1) & 3) * handTileCount + count + __shuffleMessage.point2 + __shuffleMessage.point3);
+            }
         }
     }
 

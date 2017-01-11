@@ -35,7 +35,13 @@ public class Keypad : MonoBehaviour
         if(__count * step >= count)
         {
             if (onComplete != null)
-                onComplete.Invoke(text.Replace(empty, string.Empty));
+            {
+                string result = string.Empty;
+                for (int i = 0; i < __count; ++i)
+                    result += text[i * step];
+
+                onComplete.Invoke(result);
+            }
         }
     }
 

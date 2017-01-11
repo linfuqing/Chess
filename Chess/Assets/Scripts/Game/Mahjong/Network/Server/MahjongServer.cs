@@ -23,6 +23,100 @@ public class MahjongServer : Server
 
     private class Room
     {
+        public class Rule : Mahjong.Rule
+        {
+            private IEnumerable<WinFlag> __winFlags;
+
+            public override IEnumerable<WinFlag> winFlags
+            {
+                get
+                {
+                    if(__winFlags == null)
+                        __winFlags = base.winFlags;
+
+                    return __winFlags;
+                }
+            }
+
+            public IEnumerable<WinFlag> Check(IEnumerator enumerator, int count)
+            {
+                IEnumerable<WinFlag> winFlags = __winFlags;
+                if (winFlags == null)
+                    winFlags = base.winFlags;
+
+                if (winFlags == null)
+                    return null;
+
+                List<WinFlag> result = null;
+                foreach(WinFlag winFlag in winFlags)
+                {
+                    if(((winFlag.instance >> 0) & 0x7) >= count)
+                    {
+                        if (result == null)
+                            result = new List<WinFlag>();
+
+                        result.Add(new WinFlag(winFlag.index, winFlag.instance - count));
+                    }
+
+                    if (((winFlag.instance >> 3) & 0x7) >= count)
+                    {
+                        if (result == null)
+                            result = new List<WinFlag>();
+
+                        result.Add(new WinFlag(winFlag.index, winFlag.instance - (count << 3)));
+                    }
+
+                    if (((winFlag.instance >> 6) & 0x7) >= count)
+                    {
+                        if (result == null)
+                            result = new List<WinFlag>();
+
+                        result.Add(new WinFlag(winFlag.index, winFlag.instance - (count << 6)));
+                    }
+                }
+
+                __winFlags = result;
+
+                IEnumerable<WinFlag> temp = Check(enumerator);
+
+                __winFlags = winFlags;
+
+                return temp;
+            }
+        }
+
+        public class Rule258 : Rule
+        {
+            public override IEnumerable<WinFlag> Check(IEnumerator enumerator)
+            {
+                IEnumerator temp = enumerator.Clone();
+                IEnumerable <WinFlag> winFlags = base.Check(enumerator);
+                if (winFlags == null || temp == null || !temp.MoveNext())
+                    return winFlags;
+
+                Mahjong.Tile source = Mahjong.Tile.Get(temp.Current), destination;
+                int count = 1;
+                while(temp.MoveNext())
+                {
+                    destination = Mahjong.Tile.Get(temp.Current);
+                    if (source.type == destination.type && source.number == destination.number)
+                        ++count;
+                    else
+                    {
+                        if(count == 2)
+                            return source.number == 2 || source.number == 5 || source.number == 8 ? winFlags : null;
+
+                        count = 1;
+                    }
+                }
+
+                if (count == 2)
+                    return source.number == 2 || source.number == 5 || source.number == 8 ? winFlags : null;
+
+                return null;
+            }
+        }
+
         public class Player : Mahjong.Player
         {
             private static List<KeyValuePair<int, Mahjong.Tile>> __tiles;
@@ -918,9 +1012,21 @@ public class MahjongServer : Server
         if (connection == null)
             return;
 
-        string name = nextRoomIndex.ToString("D6");
-        if (CreateRoom(name) == -1)
-            return;
+        NameMessage nameMessage = message.ReadMessage<NameMessage>();
+        string name;
+        if (nameMessage == null || string.IsNullOrEmpty(nameMessage.name))
+        {
+            name = nextRoomIndex.ToString("D6");
+            if (CreateRoom(name) == -1)
+                name = string.Empty;
+        }
+        else
+        {
+            if (__roomMap == null || !__roomMap.ContainsKey(nameMessage.name))
+                name = string.Empty;
+            else
+                name = nameMessage.name;
+        }
 
         Send(connection.connectionId, (short)MahjongNetworkMessageType.Room, new NameMessage(name));
     }

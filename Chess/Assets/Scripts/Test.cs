@@ -1,11 +1,11 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
 
 public class Test : MonoBehaviour
 {
 	void Start ()
-    {
+    { 
         List<Mahjong.RuleNode> ruleNodes = new List<Mahjong.RuleNode>();
         Mahjong.Rule rule = new Mahjong.Rule();
         Debug.Log(rule.Check(new Mahjong.Rule.Enumerator(new LinkedList<int>(new int[]

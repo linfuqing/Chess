@@ -6,31 +6,48 @@ public class Test : MonoBehaviour
 {
 	void Start ()
     {
-        List<Mahjong.RuleNode> ruleNodes = new List<Mahjong.RuleNode>();
+        List<KeyValuePair<int, IEnumerable<Mahjong.Rule.WinFlag>>> indices = new List<KeyValuePair<int, IEnumerable<Mahjong.Rule.WinFlag>>>();
         Mahjong.Rule rule = new Mahjong.Rule();
-        Debug.Log(rule.Check(new Mahjong.Rule.Enumerator(new LinkedList<int>(new int[]
+        Debug.Log(rule.Check(new Mahjong.Rule.Enumerator(new LinkedList<LinkedListNode<int>>(new LinkedListNode<int>[]
         {
-            new Mahjong.Tile(Mahjong.TileType.Dots, 3) << 2,
-            new Mahjong.Tile(Mahjong.TileType.Dots, 3) << 2,
-            new Mahjong.Tile(Mahjong.TileType.Dots, 3) << 2,
+            //new LinkedListNode<int>(new Mahjong.Tile(Mahjong.TileType.Dots, 1) << 2),
+            new LinkedListNode<int>(new Mahjong.Tile(Mahjong.TileType.Dots, 1) << 2),//
+            new LinkedListNode<int>(new Mahjong.Tile(Mahjong.TileType.Dots, 1) << 2),//
 
-            new Mahjong.Tile(Mahjong.TileType.Dots, 4) << 2,
-            new Mahjong.Tile(Mahjong.TileType.Dots, 5) << 2,
-            new Mahjong.Tile(Mahjong.TileType.Dots, 6) << 2,
+            new LinkedListNode<int>(new Mahjong.Tile(Mahjong.TileType.Dots, 1) << 2),//
+            new LinkedListNode<int>(new Mahjong.Tile(Mahjong.TileType.Dots, 2) << 2),//
+            new LinkedListNode<int>(new Mahjong.Tile(Mahjong.TileType.Dots, 2) << 2),//
 
-            new Mahjong.Tile(Mahjong.TileType.Bomboo, 4) << 2,
-            new Mahjong.Tile(Mahjong.TileType.Bomboo, 5) << 2,
-            new Mahjong.Tile(Mahjong.TileType.Bomboo, 6) << 2,
+            new LinkedListNode<int>(new Mahjong.Tile(Mahjong.TileType.Dots, 3) << 2),//
+            new LinkedListNode<int>(new Mahjong.Tile(Mahjong.TileType.Dots, 3) << 2),//
 
-            new Mahjong.Tile(Mahjong.TileType.Easet, 0) << 2,
-            new Mahjong.Tile(Mahjong.TileType.Easet, 0) << 2,
-            new Mahjong.Tile(Mahjong.TileType.Easet, 0) << 2,
+            new LinkedListNode<int>(new Mahjong.Tile(Mahjong.TileType.Dots, 4) << 2),//
+            new LinkedListNode<int>(new Mahjong.Tile(Mahjong.TileType.Dots, 4) << 2),
+            new LinkedListNode<int>(new Mahjong.Tile(Mahjong.TileType.Dots, 5) << 2),//
 
-            new Mahjong.Tile(Mahjong.TileType.Green, 0) << 2,
-            new Mahjong.Tile(Mahjong.TileType.Green, 0) << 2,
-        }))).Count());
+            new LinkedListNode<int>(new Mahjong.Tile(Mahjong.TileType.Dots, 5) << 2),
+            new LinkedListNode<int>(new Mahjong.Tile(Mahjong.TileType.Dots, 6) << 2),
+            new LinkedListNode<int>(new Mahjong.Tile(Mahjong.TileType.Dots, 6) << 2),
 
+        })), delegate(int index, IEnumerable<Mahjong.Rule.WinFlag> winFlags)
+        {
+            if (indices == null)
+                indices = new List<KeyValuePair<int, IEnumerable<Mahjong.Rule.WinFlag>>>();
 
-	}
+            indices.Add(new KeyValuePair<int, IEnumerable<Mahjong.Rule.WinFlag>>(index, winFlags));
+        }));
+        
+        if(indices != null)
+        {
+            foreach (KeyValuePair<int, IEnumerable<Mahjong.Rule.WinFlag>> pair in indices)
+            {
+                string temp = pair.Key.ToString();
+                foreach (Mahjong.Rule.WinFlag winFlag in pair.Value)
+                    temp += ", " + winFlag.index;
+
+                Debug.Log(temp);
+            }
+        }
+    }
 	
 }

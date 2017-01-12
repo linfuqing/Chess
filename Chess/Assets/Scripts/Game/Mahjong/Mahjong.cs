@@ -121,18 +121,19 @@ public class Mahjong
 
         public struct Enumerator : IEnumerator
         {
-            private LinkedList<int> __list;
-            private LinkedListNode<int> __instance;
+            private LinkedList<LinkedListNode<int>> __list;
+            private LinkedListNode<LinkedListNode<int>> __instance;
 
             public int Current
             {
                 get
                 {
-                    return __instance == null ? -1 : __instance.Value;
+                    LinkedListNode<int> node = __instance == null ? null : __instance.Value;
+                    return node == null ? -1 : node.Value;
                 }
             }
 
-            public Enumerator(LinkedList<int> list)
+            public Enumerator(LinkedList<LinkedListNode<int>> list)
             {
                 __list = list;
 
@@ -329,20 +330,23 @@ public class Mahjong
             }
         }
         
-        public virtual bool Check(int count, ref IEnumerable<WinFlag> winFlags)
+        public virtual int GetMask(RuleType ruleType, out int shift)
         {
-            for (int i = 0; i < count; ++i)
+            switch (ruleType)
             {
-                winFlags =
-                        from winFlag in winFlags
-                        where ((winFlag.instance >> 6) & 0x7) > 0
-                        select new WinFlag(winFlag.index, winFlag.instance - (1 << 6));
-
-                if (!winFlags.Any())
-                    break;
+                case RuleType.Chow:
+                    shift = 6;
+                    return 0x7;
+                case RuleType.Pong:
+                case RuleType.Kong:
+                case RuleType.HiddenKong:
+                case RuleType.MeldedKong:
+                    shift = 3;
+                    return 0x7;
             }
 
-            return winFlags.Any();
+            shift = 0;
+            return 0;
         }
 
         public virtual bool CheckEye(int count, ref IEnumerable<WinFlag> winFlags)
@@ -374,8 +378,8 @@ public class Mahjong
                        (from winFlag in winFlags
                         where ((winFlag.instance >> 3) & 0x7) > 0
                         select new WinFlag(winFlag.index, winFlag.instance - (1 << 3))).Union(from winFlag in winFlags
-                                                         where (winFlag.instance & 0x7) > 1
-                                                         select new WinFlag(winFlag.index, winFlag.instance - 2));
+                                                                                              where (winFlag.instance & 0x7) > 1
+                                                                                              select new WinFlag(winFlag.index, winFlag.instance - 2));
 
                     if (!winFlags.Any())
                         return false;
@@ -386,7 +390,46 @@ public class Mahjong
 
             return true;
         }
-        
+
+        public virtual bool Check(int count, ref IEnumerable<WinFlag> winFlags)
+        {
+            IEnumerable<WinFlag> result = null;
+            if (count > 0)
+            {
+                result = winFlags;
+                for (int i = 0; i < 3; ++ i)
+                {
+                    if(!CheckEye(count, ref result))
+                    {
+                        result = null;
+
+                        break;
+                    }
+                }
+            }
+
+            for (int i = 0; i < count; ++i)
+            {
+                winFlags =
+                        from winFlag in winFlags
+                        where ((winFlag.instance >> 6) & 0x7) > 0
+                        select new WinFlag(winFlag.index, winFlag.instance - (1 << 6));
+
+                if (!winFlags.Any())
+                    break;
+            }
+
+            if(result != null)
+            {
+                if (winFlags == null)
+                    winFlags = result;
+                else
+                    winFlags = winFlags.Union(result);
+            }
+
+            return winFlags.Any();
+        }
+
         public virtual IEnumerable<WinFlag> Check(IEnumerator enumerator)
         {
             IEnumerable<WinFlag> winFlags = this.winFlags;
@@ -402,6 +445,24 @@ public class Mahjong
             return null;
         }
 
+        public bool Check(IEnumerator enumerator, Action<int, IEnumerable<WinFlag>> handler)
+        {
+            if (handler == null)
+                return false;
+
+            IEnumerable<WinFlag> winFlags = this.winFlags;
+            if (winFlags == null)
+                return false;
+
+            if (enumerator == null || !enumerator.MoveNext())
+                return false;
+
+            if (__Check(1, 0, 0, 1, Tile.Get(enumerator.Current), handler, enumerator, ref winFlags))
+                return true;
+
+            return false;
+        }
+        
         public void Check(IEnumerable<int> indices, int index, Action<RuleNode> set)
         {
             if (set == null)
@@ -506,8 +567,7 @@ public class Mahjong
             if (count > 0 && tile.number - source.number == 1)
                 set(new RuleNode(RuleType.Chow, current, 2));
         }
-
-
+        
         /*public void Check(IEnumerable<int> indices, int index, Action<RuleNode> set)
         {
             if (indices == null || set == null)
@@ -841,19 +901,17 @@ public class Mahjong
             if (enumerator == null || !enumerator.MoveNext())
             {
                 int temp = Math.Min(Math.Min(previousCount, currentCount), nextCount);
-                if (!Check(temp, ref winFlags))
+                
+                if (temp > 0 && !Check(temp, ref winFlags))
+                    return false;
+                    
+                if (previousCount > temp && !CheckEye(previousCount - temp, ref winFlags))
                     return false;
 
-                previousCount -= temp;
-                if (previousCount > 0 && !CheckEye(previousCount, ref winFlags))
+                if (currentCount > temp && !CheckEye(currentCount - temp, ref winFlags))
                     return false;
 
-                currentCount -= temp;
-                if (currentCount > 0 && !CheckEye(currentCount, ref winFlags))
-                    return false;
-
-                nextCount -= temp;
-                if (nextCount > 0 && !CheckEye(nextCount, ref winFlags))
+                if (nextCount > temp && !CheckEye(nextCount - temp, ref winFlags))
                     return false;
 
                 return true;
@@ -863,19 +921,16 @@ public class Mahjong
             if (destination.type != source.type || destination.number - source.number > 1)
             {
                 int temp = Math.Min(Math.Min(previousCount, currentCount), nextCount);
-                if (!Check(temp, ref winFlags))
+                if (temp > 0 && !Check(temp, ref winFlags))
                     return false;
 
-                previousCount -= temp;
-                if (previousCount > 0 && !CheckEye(previousCount, ref winFlags))
+                if (previousCount > temp && !CheckEye(previousCount - temp, ref winFlags))
+                    return false;
+                    
+                if (currentCount > temp && !CheckEye(currentCount - temp, ref winFlags))
                     return false;
 
-                currentCount -= temp;
-                if (currentCount > 0 && !CheckEye(currentCount, ref winFlags))
-                    return false;
-
-                nextCount -= temp;
-                if (nextCount > 0 && !CheckEye(nextCount, ref winFlags))
+                if (nextCount > temp && !CheckEye(nextCount - temp, ref winFlags))
                     return false;
 
                 previousCount = 0;
@@ -892,7 +947,7 @@ public class Mahjong
                 {
                     instance = winFlags;
                      
-                    if (!Check(i, ref instance))
+                    if (i > 0 && !Check(i, ref instance))
                         continue;
 
                     if (previousCount > i && !CheckEye(previousCount - i, ref instance))
@@ -903,7 +958,7 @@ public class Mahjong
                         if (result == null)
                             result = instance;
                         else
-                            result.Union(instance);
+                            result = result.Union(instance);
                     }
                 }
 
@@ -920,6 +975,398 @@ public class Mahjong
                 return false;
 
             return __Check(previousCount, currentCount, nextCount, destination, enumerator, ref winFlags);
+        }
+
+        private bool __Check(
+            int index, 
+            int previousCount, 
+            int currentCount, 
+            int nextCount, 
+            Tile source, 
+            Action<int, IEnumerable<WinFlag>> handler, 
+            IEnumerator enumerator, 
+            ref IEnumerable<WinFlag> winFlags)
+        {
+            if (enumerator == null || !enumerator.MoveNext())
+            {
+                IEnumerable<WinFlag> result = winFlags;
+                int temp = Math.Min(Math.Min(previousCount, currentCount), nextCount);
+
+                if ((source.number > 1 ? previousCount - temp : 0) +
+                    (source.number > 0 ? currentCount - temp : 0) +
+                    (source.number < 8 ? nextCount - temp : 0) == 2)
+                {
+                    ++temp;
+                    if ((previousCount <= temp || CheckEye(previousCount - temp, ref result)) &&
+                        (currentCount <= temp || CheckEye(currentCount - temp, ref result)) &&
+                        ((nextCount <= temp || CheckEye(nextCount - temp, ref result))))
+                    {
+                        if (handler != null)
+                        {
+                            if (previousCount <= temp)
+                            {
+                                if (source.number > 1)
+                                    handler(index - nextCount - currentCount - 1, result);
+                            }
+
+                            if (currentCount <= temp)
+                            {
+                                if (source.number > 0)
+                                    handler(index - nextCount - 1, result);
+                            }
+
+                            if (nextCount <= temp)
+                            {
+                                if (source.number < 8)
+                                    handler(index - 1, result);
+                            }
+                        }
+                    }
+                    else
+                        result = null;
+
+                    --temp;
+                }
+
+                IEnumerable<WinFlag> instance;
+
+                if (temp > 0 && !Check(temp, ref winFlags))
+                    return false;
+
+                instance = winFlags;
+                if (previousCount > temp && !CheckEye(previousCount - temp, ref winFlags))
+                {
+                    winFlags = instance;
+                    if (CheckEye(previousCount - temp + 1, ref winFlags) &&
+                        (currentCount <= temp || CheckEye(currentCount - temp, ref winFlags)) &&
+                        ((nextCount <= temp || CheckEye(nextCount - temp, ref winFlags))))
+                    {
+                        if (handler != null)
+                            handler(index - nextCount - currentCount - 1, winFlags);
+
+                        /*if (result != null)
+                        {
+                            if (winFlags == null)
+                                winFlags = result;
+                            else
+                                winFlags = winFlags.Union(result);
+                        }*/
+
+                        return true;
+                    }
+                    else
+                    {
+                        winFlags = result;
+
+                        return winFlags != null;
+                    }
+                }
+
+                instance = winFlags;
+                if (currentCount > temp && !CheckEye(currentCount - temp, ref winFlags))
+                {
+                    winFlags = instance;
+                    if (CheckEye(currentCount - temp + 1, ref winFlags) &&
+                        ((nextCount <= temp || CheckEye(nextCount - temp, ref winFlags))))
+                    {
+                        if (handler != null)
+                            handler(index - nextCount - 1, winFlags);
+
+                        /*if (result != null)
+                        {
+                            if (winFlags == null)
+                                winFlags = result;
+                            else
+                                winFlags = winFlags.Union(result);
+                        }*/
+
+                        return true;
+                    }
+                    else
+                    {
+                        winFlags = result;
+
+                        return winFlags != null;
+                    }
+                }
+
+                instance = winFlags;
+                if (nextCount > temp && !CheckEye(nextCount - temp, ref winFlags))
+                {
+                    winFlags = instance;
+                    if (CheckEye(nextCount - temp + 1, ref winFlags))
+                    {
+                        if (handler != null)
+                            handler(index - 1, winFlags);
+
+                        /*if (result != null)
+                        {
+                            if (winFlags == null)
+                                winFlags = result;
+                            else
+                                winFlags = winFlags.Union(result);
+                        }*/
+
+                        return true;
+                    }
+                    else
+                    {
+                        winFlags = result;
+
+                        return winFlags != null;
+                    }
+                }
+
+                return true;
+            }
+
+            Tile destination = Tile.Get(enumerator.Current);
+            if (destination.type != source.type || destination.number - source.number > 1)
+            {
+                IEnumerable<WinFlag> result = winFlags, instance;
+                int temp = Math.Min(Math.Min(previousCount, currentCount), nextCount);
+                if (destination.type == source.type && (destination.number - source.number) == 2)
+                {
+                    IEnumerable<WinFlag> target;
+                    int count, i, j;
+                    for (i = 0; i <= temp; ++i)
+                    {
+                        instance = winFlags;
+
+                        if (i > 0 && !Check(i, ref instance))
+                            continue;
+
+                        if (previousCount > i && !CheckEye(previousCount - i, ref instance))
+                            continue;
+
+                        count = Math.Min(Math.Min(currentCount - i, nextCount - i), 1);
+                        for (j = 0; j < count; ++j)
+                        {
+                            target = instance;
+                            if (j > 0 && !Check(j, ref target))
+                                continue;
+
+                            if (nextCount > (i + j) && !CheckEye(nextCount - i - j, ref target))
+                                continue;
+
+                            if (__Check(nextCount - i - j, 1 - j, 1, destination, enumerator.Clone(), ref target))
+                            {
+                                if (result == null)
+                                    result = target;
+                                else
+                                    result = result.Union(target);
+                            }
+                        }
+                    }
+
+                    if (result != null && result.Any())
+                    {
+                        if (handler != null)
+                            handler(index - 1, result);
+                    }
+                    else
+                        result = null;
+                }
+                
+                if ((source.number > 1 ? previousCount - temp : 0) +
+                    (source.number > 0 ? currentCount - temp : 0) +
+                    (source.number < 8 ? nextCount - temp : 0) == 2)
+                {
+                    ++temp;
+
+                    instance = winFlags;
+                    if ((previousCount <= temp || CheckEye(previousCount - temp, ref instance)) &&
+                        (currentCount <= temp || CheckEye(currentCount - temp, ref instance)) &&
+                        ((nextCount <= temp || CheckEye(nextCount - temp, ref instance))) &&
+                        __Check(0, 0, 1, destination, enumerator.Clone(), ref instance))
+                    {
+                        if (handler != null)
+                        {
+                            if (previousCount <= temp)
+                            {
+                                if (source.number > 1)
+                                    handler(index - nextCount - currentCount - 1, instance);
+                            }
+
+                            if (currentCount <= temp)
+                            {
+                                if (source.number > 0)
+                                    handler(index - nextCount - 1, instance);
+                            }
+
+                            if (nextCount <= temp)
+                            {
+                                if (source.number < 8)
+                                    handler(index - 1, instance);
+                            }
+                        }
+                        
+                        result = instance;
+                        /*if (instance != null)
+                        {
+                            if (result == null)
+                                result = instance;
+                            else
+                                result = result.Union(instance);
+                        }*/
+                    }
+
+                    --temp;
+                }
+
+                if (temp > 0 && !Check(temp, ref winFlags))
+                    return result != null;
+
+                instance = winFlags;
+                if (previousCount > temp && !CheckEye(previousCount - temp, ref winFlags))
+                {
+                    winFlags = instance;
+                    if (CheckEye(previousCount - temp + 1, ref winFlags) &&
+                        (currentCount <= temp || CheckEye(currentCount - temp, ref winFlags)) &&
+                        ((nextCount <= temp || CheckEye(nextCount - temp, ref winFlags))) &&
+                        __Check(0, 0, 1, destination, enumerator.Clone(), ref winFlags))
+                    {
+                        if (handler != null)
+                            handler(index - nextCount - currentCount - 1, winFlags);
+
+                        /*if (result != null)
+                        {
+                            if (winFlags == null)
+                                winFlags = result;
+                            else
+                                winFlags = winFlags.Union(result);
+                        }*/
+
+                        return true;
+                    }
+                    else
+                    {
+                        winFlags = result;
+
+                        return winFlags != null;
+                    }
+                }
+
+                instance = winFlags;
+                if (currentCount > temp && !CheckEye(currentCount - temp, ref winFlags))
+                {
+                    winFlags = instance;
+                    if (CheckEye(currentCount - temp + 1, ref winFlags) &&
+                        ((nextCount <= temp || CheckEye(nextCount - temp, ref winFlags))) &&
+                        __Check(0, 0, 1, destination, enumerator.Clone(), ref winFlags))
+                    {
+                        if (handler != null)
+                            handler(index - nextCount - 1, winFlags);
+
+                        /*if (result != null)
+                        {
+                            if (winFlags == null)
+                                winFlags = result;
+                            else
+                                winFlags = winFlags.Union(result);
+                        }*/
+
+                        return true;
+                    }
+                    else
+                    {
+                        winFlags = result;
+
+                        return winFlags != null;
+                    }
+                }
+
+                instance = winFlags;
+                if (nextCount > temp && !CheckEye(nextCount - temp, ref winFlags))
+                {
+                    winFlags = instance;
+                    if (CheckEye(nextCount - temp + 1, ref winFlags) &&
+                        __Check(0, 0, 1, destination, enumerator.Clone(), ref winFlags))
+                    {
+                        if (handler != null)
+                            handler(index - 1, winFlags);
+
+                        /*if (result != null)
+                        {
+                            if (winFlags == null)
+                                winFlags = result;
+                            else
+                                winFlags = winFlags.Union(result);
+                        }*/
+                        
+                        return true;
+                    }
+                    else
+                    {
+                        winFlags = result;
+
+                        return winFlags != null;
+                    }
+                }
+
+                previousCount = 0;
+                currentCount = 0;
+                nextCount = 1;
+            }
+            else if (destination.number == source.number)
+                ++nextCount;
+            else if (destination.number - source.number == 1)
+            {
+                IEnumerable<WinFlag> /*result = null, */instance, target;
+                int temp = Math.Min(Math.Min(previousCount, currentCount), nextCount);
+                bool result = false;
+                for (int i = 0; i <= temp; ++i)
+                {
+                    instance = winFlags;
+
+                    if (i > 0 && !Check(i, ref instance))
+                        continue;
+
+                    target = instance;
+                    if (previousCount > i && !CheckEye(previousCount - i, ref instance))
+                    {
+                        instance = target;
+                        if (CheckEye(previousCount - i + 1, ref instance) && 
+                            __Check(currentCount - i, nextCount - i, 1, destination, enumerator.Clone(), ref instance))
+                        {
+                            if (handler != null)
+                                handler(index - nextCount - currentCount - 1, instance);
+
+                            result = true;
+                            /*if (result == null)
+                                result = instance;
+                            else
+                                result = result.Union(instance);*/
+                                
+                        }
+
+                        continue;
+                    }
+
+                    if (__Check(index + 1, currentCount - i, nextCount - i, 1, destination, handler, enumerator.Clone(), ref instance))
+                    {
+                        result = true;
+                        /*if (result == null)
+                            result = instance;
+                        else
+                            result = result.Union(instance);*/
+                    }
+                }
+
+                return result;
+                /*if (result != null && result.Any())
+                {
+                    winFlags = result;
+
+                    return true;
+                }
+                else
+                    return false;*/
+            }
+            else
+                return false;
+
+            return __Check(index + 1, previousCount, currentCount, nextCount, destination, handler, enumerator, ref winFlags);
         }
     }
 
@@ -1272,18 +1719,53 @@ public class Mahjong
             return node == null ? -1 : node.Value;
         }
         
+        public IEnumerable<Rule.WinFlag> Check()
+        {
+            if (__handTileIndices == null || __handTileIndices.Count != 14 + __kongCount)
+                return null;
+
+            if (__mahjong == null || __mahjong.rule == null)
+                return null;
+
+            IEnumerable<Rule.WinFlag> winFlags = __mahjong.rule.Check(new Rule.Enumerator(__handTileNodes));
+            if (winFlags == null)
+                return null;
+
+            if(__groups != null)
+            {
+                int mask, shift;
+                foreach(Group group in __groups)
+                {
+                    mask = __mahjong.rule.GetMask(group._type, out shift);
+                    if (mask > 0)
+                    {
+                        winFlags = from winFlag in winFlags
+                                   where (winFlag.instance & mask) > 0
+                                   select new Rule.WinFlag(winFlag.index, winFlag.instance - (1 << shift));
+
+                        if (!winFlags.Any())
+                            return null;
+                    }
+                    else
+                        return null;
+                }
+            }
+
+            return winFlags;
+        }
+
         public IEnumerable<Rule.WinFlag> Check(int index)
         {
             if (__mahjong == null || __mahjong.rule == null)
                 return null;
-
-            LinkedListNode<int> node = new LinkedListNode<int>(index);
+            
+            LinkedListNode<LinkedListNode<int>> node = new LinkedListNode<LinkedListNode<int>>(new LinkedListNode<int>(index));
             if (!__Add(node))
                 return null;
 
-            IEnumerable<Rule.WinFlag> result = __mahjong.rule.Check(new Rule.Enumerator(__handTileIndices));
-            if (__handTileIndices != null)
-                __handTileIndices.Remove(node);
+            IEnumerable<Rule.WinFlag> result = Check();
+            if (__handTileNodes != null)
+                __handTileNodes.Remove(node);
 
             return result;
         }
@@ -1398,7 +1880,8 @@ public class Mahjong
                                         continue;
                                 }
 
-                                __Add(node);
+                                if (!__Add(temp) && !__Add(node))
+                                    return false;
 
                                 break;
                             }
@@ -1464,7 +1947,7 @@ public class Mahjong
 
                         break;
                     default:
-                        if (__Add(node))
+                        if (__Add(temp) && __Add(node))
                         {
                             if (handTileCount < (13 + __kongCount))
                                 __mahjong.__playerIndex = (__mahjong.__playerIndex + 1) & 3;
@@ -1617,7 +2100,7 @@ public class Mahjong
                         }
                     }
 
-                    IEnumerable<Rule.WinFlag> winFlags = __mahjong.rule.Check(new Rule.Enumerator(__handTileIndices));
+                    IEnumerable<Rule.WinFlag> winFlags = Check();
                     if (winFlags != null)
                         __Add(new RuleNode(__kongPlayerIndex >= 0 && __kongPlayerIndex < 4 ? RuleType.OverKong : RuleType.SelfDraw, __Add(winFlags), 0));
                 }
@@ -2277,7 +2760,7 @@ public class Mahjong
         private bool __Add(LinkedListNode<LinkedListNode<int>> node)
         {
             LinkedListNode<int> target = node == null ? null : node.Value;
-            if (!__Add(target))
+            if (target == null)
                 return false;
 
             if (__handTileNodes == null)

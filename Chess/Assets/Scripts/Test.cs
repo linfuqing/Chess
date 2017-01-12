@@ -4,7 +4,7 @@ using System.Linq;
 
 public class Test : MonoBehaviour
 {
-	void Start ()
+	void Start () 
     {
         List<KeyValuePair<int, IEnumerable<Mahjong.Rule.WinFlag>>> indices = new List<KeyValuePair<int, IEnumerable<Mahjong.Rule.WinFlag>>>();
         Mahjong.Rule rule = new Mahjong.Rule();

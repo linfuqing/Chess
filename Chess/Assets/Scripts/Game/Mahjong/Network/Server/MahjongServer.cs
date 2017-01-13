@@ -259,6 +259,17 @@ public class MahjongServer : Server
                 return score;
             }
 
+            public void SendReadyHand()
+            {
+                MahjongServer host = __instance == null ? null : __instance.host as MahjongServer;
+                if (host != null)
+                {
+                    Node node;
+                    if (host.GetNode(__instance.node.index, out node))
+                        host.SendReadyHandMessage(node.connectionId);
+                }
+            }
+
             public void SendRuleMessage(ReadOnlyCollection<Mahjong.RuleNode> ruleNodes)
             {
                 MahjongServer host = __instance == null ? null : __instance.host as MahjongServer;
@@ -275,7 +286,25 @@ public class MahjongServer : Server
                 if (__instance == null)
                     return null;
 
-                return __instance.Wait((byte)handleTileIndex, (short)MahjongNetworkRPCHandle.Throw, timeout, __OnThrow);
+                int tileIndex = handleTileIndex;
+                if (tileIndex < 0)
+                {
+                    Enumerator enumerator = GetEnumerator();
+                    if (!enumerator.MoveNext())
+                        return null;
+
+                    tileIndex = enumerator.Current;
+                }
+
+                return __instance.Wait((byte)tileIndex, (short)MahjongNetworkRPCHandle.Throw, timeout, __OnThrow);
+            }
+
+            public IEnumerator WaitToReady(float timeout)
+            {
+                if (__instance == null)
+                    return null;
+
+                return __instance.Wait((byte)0, (short)MahjongNetworkRPCHandle.Ready, timeout, __OnReady);
             }
 
             public IEnumerator WaitToTry(float timeout)
@@ -283,9 +312,9 @@ public class MahjongServer : Server
                 if (__instance == null)
                     return null;
 
-                return __instance.Wait((byte)handleTileIndex, (short)MahjongNetworkRPCHandle.Try, timeout, __OnTry);
+                return __instance.Wait(255, (short)MahjongNetworkRPCHandle.Try, timeout, __OnTry);
             }
-
+            
             public bool End(int index)
             {
                 Action<int> handler = delegate (int temp)
@@ -425,6 +454,15 @@ public class MahjongServer : Server
             private void __OnThrow(byte index)
             {
                 Discard(index);
+            }
+
+            private void __OnReady(byte index)
+            {
+                if(index > 0 && Ready())
+                {
+                    if (instance != null)
+                        instance.Ready();
+                }
             }
 
             private void __OnTry(byte index)
@@ -622,6 +660,13 @@ public class MahjongServer : Server
                     {
                         if (player.drawType == Mahjong.Player.DrawType.None)
                         {
+                            if (player.Check(null))
+                            {
+                                player.SendReadyHand();
+
+                                yield return player.WaitToReady(5.0f);
+                            }
+
                             if (!player.Draw())
                                 break;
                         }
@@ -683,7 +728,8 @@ public class MahjongServer : Server
                                 }
                             }
 
-                            yield return player.WaitToThrow(6.0f);
+                            if (!player.isReady || !player.Discard(player.handleTileIndex))
+                                yield return player.WaitToThrow(6.0f);
 
                             for (i = 1; i < 4; ++i)
                             {
@@ -805,6 +851,11 @@ public class MahjongServer : Server
     public void SendRuleMessage(int connectionId, ReadOnlyCollection<Mahjong.RuleNode> ruleNodes)
     {
         Send(connectionId, (short)MahjongNetworkMessageType.RuleNodes, new MahjongRuleMessage(ruleNodes));
+    }
+
+    public void SendReadyHandMessage(int connectionId)
+    {
+        Send(connectionId, (short)MahjongNetworkMessageType.ReadyHand, new MahjongReadyHandMessage());
     }
     
     public new void Create()

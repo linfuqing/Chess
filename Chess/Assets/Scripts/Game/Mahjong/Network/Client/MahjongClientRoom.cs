@@ -18,11 +18,18 @@ public class MahjongClientRoom : MonoBehaviour
     }
 
     [Serializable]
+    public struct Score
+    {
+        public GameObject root;
+        public Text text;
+    }
+
+    [Serializable]
     public struct Player
     {
         public Text score;
         public HandTiles handTiles;
-        public GameObject[] scores;
+        public Score[] scores;
         public GameObject[] winners;
         public GameObject[] losers;
     }
@@ -64,10 +71,12 @@ public class MahjongClientRoom : MonoBehaviour
 
     public Finish finish;
 
+    public Button pass;
     public Button chow;
     public Button pong;
     public Button kong;
     public Button win;
+    public Button ready;
     public new Text name;
     public TextMesh time;
     public Animator animator;
@@ -305,7 +314,7 @@ public class MahjongClientRoom : MonoBehaviour
         asset.Throw();
     }
 
-    public void Score(MahjongAsset asset, int index)
+    public void Throw(MahjongAsset asset, int index)
     {
         Transform transform = asset == null ? null : asset.transform;
         if (transform == null)

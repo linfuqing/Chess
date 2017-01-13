@@ -137,6 +137,11 @@ public class MahjongClientPlayer : Node
         __selectors.AddLast(new Selector(node, handler));
     }
 
+    public void Ready(byte index)
+    {
+        CmdReady(index);
+    }
+
     public void Try(byte index)
     {
         CmdTry(index);
@@ -186,7 +191,7 @@ public class MahjongClientPlayer : Node
                 case Mahjong.TileType.Orchid:
                 case Mahjong.TileType.Chrysanthemum:
                 case Mahjong.TileType.Bamboo:
-                    room.Score(tile.asset, __scoreCount++);
+                    room.Throw(tile.asset, __scoreCount++);
                     break;
                 default:
                     room.Discard(tile.asset, __discardCount++);
@@ -307,7 +312,7 @@ public class MahjongClientPlayer : Node
         Client host = base.host as Client;
         ZG.Network.Node node = host == null ? null : host.localPlayer;
         short type = node == null ? (short)0 : node.type;
-        int index = (base.type - type + 4) & 3, ruleType = reader.ReadByte(), playerIndex = (reader.ReadByte() + index) & 3;
+        int index = (base.type - type + 4) & 3, ruleType = reader.ReadByte(), offset = reader.ReadByte(), playerIndex = (offset + index) & 3;
         MahjongClientRoom room = MahjongClientRoom.instance;
         MahjongClientRoom.Player normalPlayer = new MahjongClientRoom.Player(), winPlayer = new MahjongClientRoom.Player();
         GameObject gameObject;
@@ -351,9 +356,8 @@ public class MahjongClientPlayer : Node
                         gameObject.SetActive(true);
                 }
             }
-
-
-            if (playerIndex > 0)
+            
+            if (offset > 0)
             {
                 if (playerIndex < (room.finish.normal.players == null ? 0 : room.finish.normal.players.Length))
                 {
@@ -381,8 +385,11 @@ public class MahjongClientPlayer : Node
             {
                 if (room.finish.normal.players != null)
                 {
-                    foreach(MahjongClientRoom.Player player in room.finish.normal.players)
+                    MahjongClientRoom.Player player;
+                    int length = room.finish.normal.players == null ? 0 : room.finish.normal.players.Length;
+                    for(int i = 1; i < length; ++i)
                     {
+                        player = room.finish.normal.players[i];
                         if (ruleType >= 0 && ruleType < (player.losers == null ? 0 : player.losers.Length))
                         {
                             gameObject = player.losers[ruleType];
@@ -394,8 +401,11 @@ public class MahjongClientPlayer : Node
 
                 if (room.finish.win.players != null)
                 {
-                    foreach (MahjongClientRoom.Player player in room.finish.win.players)
+                    MahjongClientRoom.Player player;
+                    int length = room.finish.win.players == null ? 0 : room.finish.win.players.Length;
+                    for (int i = 1; i < length; ++i)
                     {
+                        player = room.finish.win.players[i];
                         if (ruleType >= 0 && ruleType < (player.losers == null ? 0 : player.losers.Length))
                         {
                             gameObject = player.losers[ruleType];
@@ -407,60 +417,70 @@ public class MahjongClientPlayer : Node
             }
         }
         
-        int score = 0, normalScores = normalPlayer.scores == null ? 0 : normalPlayer.scores.Length, winScores = winPlayer.scores == null ? 0 : winPlayer.scores.Length;
+        int temp,
+            result = 0, 
+            normalScores = normalPlayer.scores == null ? 0 : normalPlayer.scores.Length, 
+            winScores = winPlayer.scores == null ? 0 : winPlayer.scores.Length;
         byte scoreType;
+        MahjongClientRoom.Score score;
         while(true)
         {
             scoreType = reader.ReadByte();
             if (scoreType == 255)
                 break;
-            
-            if(scoreType < normalScores)
+
+            temp = reader.ReadByte();
+            result += temp;
+            if (scoreType < normalScores)
             {
-                gameObject = normalPlayer.scores[scoreType];
-                if (gameObject != null)
-                    gameObject.SetActive(true);
+                score = normalPlayer.scores[scoreType];
+                if (score.root != null)
+                    score.root.SetActive(true);
+
+                if (score.text != null)
+                    score.text.text = temp.ToString();
             }
 
             if (scoreType < winScores)
             {
-                gameObject = winPlayer.scores[scoreType];
-                if (gameObject != null)
-                    gameObject.SetActive(true);
-            }
+                score = winPlayer.scores[scoreType];
+                if (score.root != null)
+                    score.root.SetActive(true);
 
-            score += reader.ReadByte();
+                if (score.text != null)
+                    score.text.text = temp.ToString();
+            }
         }
         
         if (normalPlayer.score != null)
-            normalPlayer.score.text = score.ToString();
+            normalPlayer.score.text = result.ToString();
 
         if (winPlayer.score != null)
-            winPlayer.score.text = score.ToString();
+            winPlayer.score.text = result.ToString();
         
-        if (playerIndex > 0)
+        if (offset > 0)
         {
             if (playerIndex < (room.finish.normal.players == null ? 0 : room.finish.normal.players.Length))
             {
-                Text text = room.finish.normal.players[index].score;
+                Text text = room.finish.normal.players[playerIndex].score;
                 if (text != null)
                 {
-                    if (int.TryParse(text.text, out index))
-                        text.text = (-score - index).ToString();
+                    if (int.TryParse(text.text, out temp))
+                        text.text = (-result - temp).ToString();
                     else
-                        text.text = (-score).ToString();
+                        text.text = (-result).ToString();
                 }
             }
 
             if (playerIndex < (room.finish.win.players == null ? 0 : room.finish.win.players.Length))
             {
-                Text text = room.finish.win.players[index].score;
+                Text text = room.finish.win.players[playerIndex].score;
                 if (text != null)
                 {
-                    if (int.TryParse(text.text, out index))
-                        text.text = (-score - index).ToString();
+                    if (int.TryParse(text.text, out temp))
+                        text.text = (-result - temp).ToString();
                     else
-                        text.text = (-score).ToString();
+                        text.text = (-result).ToString();
                 }
             }
         }
@@ -468,28 +488,34 @@ public class MahjongClientPlayer : Node
         {
             if (room.finish.normal.players != null)
             {
-                foreach (MahjongClientRoom.Player player in room.finish.normal.players)
+                MahjongClientRoom.Player player;
+                int length = room.finish.normal.players == null ? 0 : room.finish.normal.players.Length;
+                for (int i = 1; i < length; ++i)
                 {
-                    if(player.score != null)
+                    player = room.finish.normal.players[i];
+                    if (player.score != null)
                     {
-                        if (int.TryParse(player.score.text, out index))
-                            player.score.text = (-score - index).ToString();
+                        if (int.TryParse(player.score.text, out temp))
+                            player.score.text = (-result - temp).ToString();
                         else
-                            player.score.text = (-score).ToString();
+                            player.score.text = (-result).ToString();
                     }
                 }
             }
 
             if (room.finish.win.players != null)
             {
-                foreach (MahjongClientRoom.Player player in room.finish.win.players)
+                MahjongClientRoom.Player player;
+                int length = room.finish.win.players == null ? 0 : room.finish.win.players.Length;
+                for (int i = 1; i < length; ++i)
                 {
+                    player = room.finish.win.players[i];
                     if (player.score != null)
                     {
-                        if (int.TryParse(player.score.text, out index))
-                            player.score.text = (-score - index).ToString();
+                        if (int.TryParse(player.score.text, out temp))
+                            player.score.text = (-result - temp).ToString();
                         else
-                            player.score.text = (-score).ToString();
+                            player.score.text = (-result).ToString();
                     }
                 }
             }
@@ -572,7 +598,7 @@ public class MahjongClientPlayer : Node
                 case Mahjong.TileType.Orchid:
                 case Mahjong.TileType.Chrysanthemum:
                 case Mahjong.TileType.Bamboo:
-                    room.Score(asset, __scoreCount++);
+                    room.Throw(asset, __scoreCount++);
                     break;
                 default:
                     room.Discard(asset, __discardCount++);
@@ -763,6 +789,14 @@ public class MahjongClientPlayer : Node
         writer.Write(index);
 
         Rpc((short)MahjongNetworkRPCHandle.Throw, writer.AsArray(), writer.Position);
+    }
+
+    private void CmdReady(byte index)
+    {
+        NetworkWriter writer = new NetworkWriter();
+        writer.Write(index);
+
+        Rpc((short)MahjongNetworkRPCHandle.Ready, writer.AsArray(), writer.Position);
     }
 
     private void CmdTry(byte index)

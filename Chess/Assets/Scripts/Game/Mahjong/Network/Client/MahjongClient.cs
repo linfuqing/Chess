@@ -8,6 +8,8 @@ using ZG.Network.Lobby;
 
 public class MahjongClient : Client
 {
+    public float readyTime = 5.0f;
+    public float tryTime = 5.0f;
     private Dictionary<byte, byte> __tiles;
 
     public Mahjong.Tile GetTile(byte code)
@@ -112,6 +114,31 @@ public class MahjongClient : Client
         }
     }
 
+    private void __OnReadyHand(NetworkMessage message)
+    {
+        MahjongClientRoom room = MahjongClientRoom.instance;
+        if (room == null || room.ready == null)
+            return;
+
+        GameObject gameObject = room.ready.gameObject;
+        if (gameObject != null)
+            gameObject.SetActive(true);
+
+        Button.ButtonClickedEvent buttonClickedEvent = new Button.ButtonClickedEvent();
+        room.ready.onClick = buttonClickedEvent;
+        buttonClickedEvent.AddListener(__ReadyHand);
+
+        gameObject = room.pass.gameObject;
+        if (gameObject != null)
+            gameObject.SetActive(true);
+
+        buttonClickedEvent = new Button.ButtonClickedEvent();
+        room.pass.onClick = buttonClickedEvent;
+        buttonClickedEvent.AddListener(__PassReady);
+
+        Invoke("__ClearReady", readyTime);
+    }
+
     private void __OnRuleNodes(NetworkMessage message)
     {
         MahjongRuleMessage ruleMessage = message == null ? null : message.ReadMessage<MahjongRuleMessage>();
@@ -176,7 +203,44 @@ public class MahjongClient : Client
             isSetEvent = __SetEvent(ruleMessage.ruleNodes, winIndices.AsReadOnly(), room.win) || isSetEvent;
 
         if (isSetEvent)
-            Invoke("__ClearEvents", 5.0f);
+        {
+            GameObject gameObject = room.pass.gameObject;
+            if (gameObject != null)
+                gameObject.SetActive(true);
+
+            Button.ButtonClickedEvent buttonClickedEvent = new Button.ButtonClickedEvent();
+            room.pass.onClick = buttonClickedEvent;
+            buttonClickedEvent.AddListener(__PassTry);
+
+            Invoke("__ClearTry", tryTime);
+        }
+    }
+
+    private void __ReadyHand()
+    {
+        MahjongClientPlayer player = localPlayer as MahjongClientPlayer;
+        if (player != null)
+            player.Ready(1);
+
+        __ClearReady();
+    }
+
+    private void __PassReady()
+    {
+        MahjongClientPlayer player = localPlayer as MahjongClientPlayer;
+        if (player != null)
+            player.Ready(0);
+
+        __ClearReady();
+    }
+
+    private void __PassTry()
+    {
+        MahjongClientPlayer player = localPlayer as MahjongClientPlayer;
+        if (player != null)
+            player.Try(255);
+
+        __ClearTry();
     }
 
     private bool __SetEvent(ReadOnlyCollection<Mahjong.RuleNode> ruleNodes, ReadOnlyCollection<int> ruleIndices, Button button)
@@ -206,7 +270,7 @@ public class MahjongClient : Client
             {
                 player.Try((byte)ruleIndices[0]);
 
-                __ClearEvents();
+                __ClearTry();
             }
             else
             {
@@ -217,7 +281,7 @@ public class MahjongClient : Client
                     {
                         player.Try((byte)temp);
 
-                        __ClearEvents();
+                        __ClearTry();
                     });
                 }
             }
@@ -228,9 +292,36 @@ public class MahjongClient : Client
         return true;
     }
 
-    private void __ClearEvents()
+    private void __ClearReady()
     {
-        CancelInvoke("__ClearEvents");
+        CancelInvoke("__ClearReady");
+
+        MahjongClientRoom room = MahjongClientRoom.instance;
+        if (room == null)
+            return;
+
+        if (room.pass != null)
+        {
+            room.pass.onClick = null;
+
+            GameObject gameObject = room.pass.gameObject;
+            if (gameObject != null)
+                gameObject.SetActive(false);
+        }
+
+        if (room.ready != null)
+        {
+            room.ready.onClick = null;
+
+            GameObject gameObject = room.ready.gameObject;
+            if (gameObject != null)
+                gameObject.SetActive(false);
+        }
+    }
+
+    private void __ClearTry()
+    {
+        CancelInvoke("__ClearTry");
 
         MahjongClientRoom room = MahjongClientRoom.instance;
         if (room == null)
@@ -239,6 +330,15 @@ public class MahjongClient : Client
         MahjongClientPlayer player = localPlayer as MahjongClientPlayer;
         if (player != null)
             player.Unselect();
+
+        if(room.pass != null)
+        {
+            room.pass.onClick = null;
+
+            GameObject gameObject = room.pass.gameObject;
+            if (gameObject != null)
+                gameObject.SetActive(false);
+        }
 
         if (room.chow != null)
         {

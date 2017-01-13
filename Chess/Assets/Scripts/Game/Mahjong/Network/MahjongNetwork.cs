@@ -6,8 +6,10 @@ public enum MahjongNetworkMessageType
 {
     Player = 300,
     Room,
+    Init, 
     Shuffle, 
     TileCodes,
+    ReadyHand, 
     RuleNodes
 }
 
@@ -17,6 +19,7 @@ public enum MahjongNetworkRPCHandle
     Hold, 
     Draw,
     Throw, 
+    Ready, 
     Try, 
     Do, 
     Score
@@ -93,26 +96,6 @@ public class RegisterMessage : NameMessage
     }
 }
 
-public class MahjongInitMessage : MessageBase
-{
-    public struct HandTile
-    {
-        public byte index;
-        public byte code;
-    }
-    
-    public struct Group
-    {
-        public Mahjong.RuleType type;
-
-        public byte[] tilesIndices;
-    }
-
-    public Group[] groups;
-    public HandTile[] handleTiles;
-    public byte[] discardTiles;
-}
-
 public class MahjongShuffleMessage : MessageBase
 {
     public byte point0;
@@ -135,7 +118,7 @@ public class MahjongShuffleMessage : MessageBase
 
     }
 
-    public override void Serialize(NetworkWriter writer)
+    /*public override void Serialize(NetworkWriter writer)
     {
         if (writer == null)
             return;
@@ -157,6 +140,27 @@ public class MahjongShuffleMessage : MessageBase
         point2 = reader.ReadByte();
         point3 = reader.ReadByte();
         dealerIndex = reader.ReadInt16();
+    }*/
+}
+
+public class MahjongInitMessage : MahjongShuffleMessage
+{
+    public short playerIndex;
+
+    public MahjongInitMessage(
+        byte point0, 
+        byte point1, 
+        byte point2, 
+        byte point3, 
+        short dealerIndex, 
+        short playerIndex) : base(
+            point0, 
+            point1, 
+            point2, 
+            point3, 
+            dealerIndex)
+    {
+        this.playerIndex = playerIndex;
     }
 }
 
@@ -254,5 +258,13 @@ public class MahjongRuleMessage : MessageBase
         }
 
         this.ruleNodes = ruleNodes == null ? null : ruleNodes.AsReadOnly();
+    }
+}
+
+public class MahjongReadyHandMessage : MessageBase
+{
+    public MahjongReadyHandMessage()
+    {
+
     }
 }

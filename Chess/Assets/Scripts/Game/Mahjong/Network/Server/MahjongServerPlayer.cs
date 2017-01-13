@@ -58,6 +58,11 @@ public class MahjongServerPlayer : ServerObject
         RpcThrow(index, group, instance);
     }
 
+    public void Ready()
+    {
+        RpcReady();
+    }
+
     public void Try(Mahjong.RuleType type)
     {
         RpcTry(type);
@@ -92,6 +97,12 @@ public class MahjongServerPlayer : ServerObject
         writer.Write(group);
         writer.Write(instance);
         RpcEnd((short)MahjongNetworkRPCHandle.Throw);
+    }
+
+    private void RpcReady()
+    {
+        RpcStart();
+        RpcEnd((short)MahjongNetworkRPCHandle.Ready);
     }
 
     private void RpcTry(Mahjong.RuleType type)

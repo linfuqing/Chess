@@ -108,22 +108,31 @@ public class MahjongClientMain : MonoBehaviour
 
         __coroutine = StartCoroutine(__LoadScene(roomSceneBuildIndex, delegate ()
         {
-            __InitRoom(nameMessage.name);
+            MahjongClientRoom room = __InitRoom();
+            if(room != null)
+            {
+                if (room.name != null)
+                    room.name.text = nameMessage.name;
+            }
 
             __client.onRegistered += __OnRegistered;
             __client.Register(new RegisterMessage(__uid, nameMessage.name));
         }, __coroutine));
     }
-
+    
     private void __OnShuffle(NetworkMessage message)
     {
         __shuffleMessage = message == null ? null : message.ReadMessage<MahjongShuffleMessage>();
         if (__shuffleMessage == null)
             return;
 
-        __InitRoom(null);
-    }
+        MahjongClientRoom room = __InitRoom();
+        if(room != null)
+        {
 
+        }
+    }
+    
     private void __OnConnect(NetworkMessage message)
     {
         __client.onConnect -= __OnConnect;
@@ -139,7 +148,7 @@ public class MahjongClientMain : MonoBehaviour
         Invoke("Create", 0.0f);
     }
     
-    private void __InitRoom(string name)
+    private MahjongClientRoom __InitRoom()
     {
         IEnumerable<Node> nodes = __client == null ? null : __client.nodes;
         if (nodes != null)
@@ -156,21 +165,16 @@ public class MahjongClientMain : MonoBehaviour
         MahjongClientRoom room = MahjongClientRoom.instance;
         if (room != null)
         {
-            if (!string.IsNullOrEmpty(name))
-            {
-                if (room.name != null)
-                    room.name.text = name;
-            }
-
-
             if (__shuffleMessage != null)
             {
                 int handTileCount = 18;
                 int count = __shuffleMessage.point0 + __shuffleMessage.point1;
 
-                room.Init(handTileCount, ((count + 1) & 3) * handTileCount + count + __shuffleMessage.point2 + __shuffleMessage.point3);
+                room.Init(handTileCount, (((count + 1) & 3) * handTileCount + count + __shuffleMessage.point2 + __shuffleMessage.point3) << 1);
             }
         }
+
+        return room;
     }
 
     private IEnumerator __LoadScene(int sceneBuildIndex, Action onComplete, Coroutine coroutine)

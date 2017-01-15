@@ -5,41 +5,11 @@ using UnityEngine.UI;
 public class MahjongClientRoom : MonoBehaviour
 {
     [Serializable]
-    public struct Tiles
-    {
-        public RawImage[] images;
-    }
-
-    [Serializable]
-    public struct HandTiles
-    {
-        public Tiles tiles;
-        public Tiles[] groups;
-    }
-
-    [Serializable]
-    public struct Score
-    {
-        public GameObject root;
-        public Text text;
-    }
-
-    [Serializable]
-    public struct Player
-    {
-        public Text score;
-        public HandTiles handTiles;
-        public Score[] scores;
-        public GameObject[] winners;
-        public GameObject[] losers;
-    }
-
-    [Serializable]
     public struct Panel
     {
         public GameObject root;
         public Button ready;
-        public Player[] players;
+        public MahjongFinishPlayerStyle[] players;
     }
 
     [Serializable]
@@ -76,11 +46,14 @@ public class MahjongClientRoom : MonoBehaviour
     public Button pong;
     public Button kong;
     public Button win;
-    public Button ready;
+    public Button hide;
+    public Button show;
     public new Text name;
     public TextMesh time;
-    public Animator animator;
-    
+    public Animator dice;
+    public Animator wind;
+    public Transform arrow;
+
     private MahjongAsset[] __instances;
     private int __index;
     
@@ -284,6 +257,10 @@ public class MahjongClientRoom : MonoBehaviour
                 }
             }
         }
+
+        GameObject gameObject = arrow == null ? null : arrow.gameObject;
+        if (gameObject != null)
+            gameObject.SetActive(false);
 
         __index = index;
     }

@@ -49,12 +49,12 @@ public class MahjongClientPlayer : Node
 
     private struct Selector
     {
-        public Mahjong.RuleNode ruleNode;
+        public int index;
         public Action handler;
 
-        public Selector(Mahjong.RuleNode ruleNode, Action handler)
+        public Selector(int index, Action handler)
         {
-            this.ruleNode = ruleNode;
+            this.index = index;
             this.handler = handler;
         }
     }
@@ -129,17 +129,33 @@ public class MahjongClientPlayer : Node
         }
     }
 
-    public void Select(Mahjong.RuleNode node, Action handler)
+    public void Select(int index, Action handler)
     {
+        if (__handle != null)
+        {
+            Tile tile = __handle.Value.tile;
+            if (tile.index == index)
+            {
+                tile.asset.onSelected = handler;
+
+                if (__selectedAssets == null)
+                    __selectedAssets = new List<MahjongAsset>();
+
+                __selectedAssets.Add(tile.asset);
+
+                return;
+            }
+        }
+        
         if (__selectors == null)
             __selectors = new LinkedList<Selector>();
 
-        __selectors.AddLast(new Selector(node, handler));
+        __selectors.AddLast(new Selector(index, handler));
     }
 
-    public void Ready(byte index)
+    public void Ready(byte code)
     {
-        CmdReady(index);
+        CmdReady(code);
     }
 
     public void Try(byte index)
@@ -195,6 +211,20 @@ public class MahjongClientPlayer : Node
                     break;
                 default:
                     room.Discard(tile.asset, __discardCount++);
+                    if (room.arrow != null)
+                    {
+                        Transform transform = tile.asset == null ? null : tile.asset.transform;
+                        if (transform != null)
+                        {
+                            GameObject gameObject = room.arrow.gameObject;
+                            if (gameObject != null)
+                                gameObject.SetActive(true);
+
+                            room.arrow.localPosition = transform.localPosition;
+
+                            room.arrow.SetParent(this.transform, false);
+                        }
+                    }
 
                     __asset = tile.asset;
                     break;
@@ -235,8 +265,8 @@ public class MahjongClientPlayer : Node
         MahjongClientRoom room = MahjongClientRoom.instance;
         if (room != null)
         {
-            if (room.animator != null)
-                room.animator.SetTrigger("Reset");
+            if (room.wind != null)
+                room.wind.SetTrigger("Reset");
 
             if (room.time != null)
                 room.time.text = string.Empty;
@@ -314,17 +344,24 @@ public class MahjongClientPlayer : Node
         short type = node == null ? (short)0 : node.type;
         int index = (base.type - type + 4) & 3, ruleType = reader.ReadByte(), offset = reader.ReadByte(), playerIndex = (offset + index) & 3;
         MahjongClientRoom room = MahjongClientRoom.instance;
-        MahjongClientRoom.Player normalPlayer = new MahjongClientRoom.Player(), winPlayer = new MahjongClientRoom.Player();
+        MahjongFinishPlayerStyle normalPlayer = null, winPlayer = null, player;
         GameObject gameObject;
         if (room != null)
         {
             if (isLocalPlayer)
             {
-                if (room.finish.win.root != null)
+                if (room.finish.win.root == null)
+                {
+                    if (room.finish.normal.root != null)
+                        room.finish.normal.root.SetActive(true);
+                }
+                else
+                {
                     room.finish.win.root.SetActive(true);
 
-                if (room.finish.normal.root != null)
-                    room.finish.normal.root.SetActive(false);
+                    if (room.finish.normal.root != null)
+                        room.finish.normal.root.SetActive(false);
+                }
             }
             else
             {
@@ -338,22 +375,28 @@ public class MahjongClientPlayer : Node
             if (index < (room.finish.normal.players == null ? 0 : room.finish.normal.players.Length))
             {
                 normalPlayer = room.finish.normal.players[index];
-                if(ruleType >= 0 && ruleType < (normalPlayer.winners == null ? 0 : normalPlayer.winners.Length))
+                if (normalPlayer != null)
                 {
-                    gameObject = normalPlayer.winners[ruleType];
-                    if (gameObject != null)
-                        gameObject.SetActive(true);
+                    if (ruleType >= 0 && ruleType < (normalPlayer.winners == null ? 0 : normalPlayer.winners.Length))
+                    {
+                        gameObject = normalPlayer.winners[ruleType];
+                        if (gameObject != null)
+                            gameObject.SetActive(true);
+                    }
                 }
             }
 
             if (index < (room.finish.win.players == null ? 0 : room.finish.win.players.Length))
             {
                 winPlayer = room.finish.win.players[index];
-                if (ruleType >= 0 && ruleType < (winPlayer.winners == null ? 0 : winPlayer.winners.Length))
+                if (winPlayer != null)
                 {
-                    gameObject = winPlayer.winners[ruleType];
-                    if (gameObject != null)
-                        gameObject.SetActive(true);
+                    if (ruleType >= 0 && ruleType < (winPlayer.winners == null ? 0 : winPlayer.winners.Length))
+                    {
+                        gameObject = winPlayer.winners[ruleType];
+                        if (gameObject != null)
+                            gameObject.SetActive(true);
+                    }
                 }
             }
             
@@ -361,7 +404,8 @@ public class MahjongClientPlayer : Node
             {
                 if (playerIndex < (room.finish.normal.players == null ? 0 : room.finish.normal.players.Length))
                 {
-                    GameObject[] losers = room.finish.normal.players[index].losers;
+                    player = room.finish.normal.players[index];
+                    GameObject[] losers = player == null ? null : player.losers;
                     if (ruleType >= 0 && ruleType < (losers == null ? 0 : losers.Length))
                     {
                         gameObject = losers[ruleType];
@@ -372,7 +416,8 @@ public class MahjongClientPlayer : Node
 
                 if (playerIndex < (room.finish.win.players == null ? 0 : room.finish.win.players.Length))
                 {
-                    GameObject[] losers = room.finish.win.players[index].losers;
+                    player = room.finish.win.players[index];
+                    GameObject[] losers = player == null ? null : player.losers;
                     if (ruleType >= 0 && ruleType < (losers == null ? 0 : losers.Length))
                     {
                         gameObject = losers[ruleType];
@@ -385,32 +430,36 @@ public class MahjongClientPlayer : Node
             {
                 if (room.finish.normal.players != null)
                 {
-                    MahjongClientRoom.Player player;
                     int length = room.finish.normal.players == null ? 0 : room.finish.normal.players.Length;
                     for(int i = 1; i < length; ++i)
                     {
                         player = room.finish.normal.players[i];
-                        if (ruleType >= 0 && ruleType < (player.losers == null ? 0 : player.losers.Length))
+                        if (player != null)
                         {
-                            gameObject = player.losers[ruleType];
-                            if (gameObject != null)
-                                gameObject.SetActive(true);
+                            if (ruleType >= 0 && ruleType < (player.losers == null ? 0 : player.losers.Length))
+                            {
+                                gameObject = player.losers[ruleType];
+                                if (gameObject != null)
+                                    gameObject.SetActive(true);
+                            }
                         }
                     }
                 }
 
                 if (room.finish.win.players != null)
                 {
-                    MahjongClientRoom.Player player;
                     int length = room.finish.win.players == null ? 0 : room.finish.win.players.Length;
                     for (int i = 1; i < length; ++i)
                     {
                         player = room.finish.win.players[i];
-                        if (ruleType >= 0 && ruleType < (player.losers == null ? 0 : player.losers.Length))
+                        if (player != null)
                         {
-                            gameObject = player.losers[ruleType];
-                            if (gameObject != null)
-                                gameObject.SetActive(true);
+                            if (ruleType >= 0 && ruleType < (player.losers == null ? 0 : player.losers.Length))
+                            {
+                                gameObject = player.losers[ruleType];
+                                if (gameObject != null)
+                                    gameObject.SetActive(true);
+                            }
                         }
                     }
                 }
@@ -419,10 +468,10 @@ public class MahjongClientPlayer : Node
         
         int temp,
             result = 0, 
-            normalScores = normalPlayer.scores == null ? 0 : normalPlayer.scores.Length, 
-            winScores = winPlayer.scores == null ? 0 : winPlayer.scores.Length;
+            normalScores = (normalPlayer == null || normalPlayer.scores == null) ? 0 : normalPlayer.scores.Length, 
+            winScores = (winPlayer == null || winPlayer.scores == null) ? 0 : winPlayer.scores.Length;
         byte scoreType;
-        MahjongClientRoom.Score score;
+        MahjongFinishPlayerStyle.Score score;
         while(true)
         {
             scoreType = reader.ReadByte();
@@ -431,38 +480,45 @@ public class MahjongClientPlayer : Node
 
             temp = reader.ReadByte();
             result += temp;
-            if (scoreType < normalScores)
+            if (normalPlayer != null)
             {
-                score = normalPlayer.scores[scoreType];
-                if (score.root != null)
-                    score.root.SetActive(true);
+                if (scoreType < normalScores)
+                {
+                    score = normalPlayer.scores[scoreType];
+                    if (score.root != null)
+                        score.root.SetActive(true);
 
-                if (score.text != null)
-                    score.text.text = temp.ToString();
+                    if (score.text != null)
+                        score.text.text = temp.ToString();
+                }
             }
 
-            if (scoreType < winScores)
+            if (winPlayer != null)
             {
-                score = winPlayer.scores[scoreType];
-                if (score.root != null)
-                    score.root.SetActive(true);
+                if (scoreType < winScores)
+                {
+                    score = winPlayer.scores[scoreType];
+                    if (score.root != null)
+                        score.root.SetActive(true);
 
-                if (score.text != null)
-                    score.text.text = temp.ToString();
+                    if (score.text != null)
+                        score.text.text = temp.ToString();
+                }
             }
         }
         
-        if (normalPlayer.score != null)
+        if (normalPlayer != null && normalPlayer.score != null)
             normalPlayer.score.text = result.ToString();
 
-        if (winPlayer.score != null)
+        if (winPlayer != null && winPlayer.score != null)
             winPlayer.score.text = result.ToString();
         
         if (offset > 0)
         {
             if (playerIndex < (room.finish.normal.players == null ? 0 : room.finish.normal.players.Length))
             {
-                Text text = room.finish.normal.players[playerIndex].score;
+                player = room.finish.normal.players[playerIndex];
+                Text text = player == null ? null : player.score;
                 if (text != null)
                 {
                     if (int.TryParse(text.text, out temp))
@@ -474,7 +530,8 @@ public class MahjongClientPlayer : Node
 
             if (playerIndex < (room.finish.win.players == null ? 0 : room.finish.win.players.Length))
             {
-                Text text = room.finish.win.players[playerIndex].score;
+                player = room.finish.win.players[playerIndex];
+                Text text = player == null ? null : player.score;
                 if (text != null)
                 {
                     if (int.TryParse(text.text, out temp))
@@ -488,34 +545,38 @@ public class MahjongClientPlayer : Node
         {
             if (room.finish.normal.players != null)
             {
-                MahjongClientRoom.Player player;
                 int length = room.finish.normal.players == null ? 0 : room.finish.normal.players.Length;
                 for (int i = 1; i < length; ++i)
                 {
                     player = room.finish.normal.players[i];
-                    if (player.score != null)
+                    if (player != null)
                     {
-                        if (int.TryParse(player.score.text, out temp))
-                            player.score.text = (-result - temp).ToString();
-                        else
-                            player.score.text = (-result).ToString();
+                        if (player.score != null)
+                        {
+                            if (int.TryParse(player.score.text, out temp))
+                                player.score.text = (-result - temp).ToString();
+                            else
+                                player.score.text = (-result).ToString();
+                        }
                     }
                 }
             }
 
             if (room.finish.win.players != null)
             {
-                MahjongClientRoom.Player player;
                 int length = room.finish.win.players == null ? 0 : room.finish.win.players.Length;
                 for (int i = 1; i < length; ++i)
                 {
                     player = room.finish.win.players[i];
-                    if (player.score != null)
+                    if (player != null)
                     {
-                        if (int.TryParse(player.score.text, out temp))
-                            player.score.text = (-result - temp).ToString();
-                        else
-                            player.score.text = (-result).ToString();
+                        if (player.score != null)
+                        {
+                            if (int.TryParse(player.score.text, out temp))
+                                player.score.text = (-result - temp).ToString();
+                            else
+                                player.score.text = (-result).ToString();
+                        }
                     }
                 }
             }
@@ -531,7 +592,7 @@ public class MahjongClientPlayer : Node
         if (room == null)
             return;
 
-        byte length = reader.ReadByte(), count, i, j;
+        byte flag = reader.ReadByte(), length = reader.ReadByte(), count, i, j;
         Mahjong.RuleType type;
         MahjongAsset asset;
         Transform transform;
@@ -602,6 +663,19 @@ public class MahjongClientPlayer : Node
                     break;
                 default:
                     room.Discard(asset, __discardCount++);
+                    if((flag & (1 << (int)MahjongPlayerStatus.Turn)) != 0)
+                    {
+                        if (room.arrow != null)
+                        {
+                            GameObject gameObject = room.arrow.gameObject;
+                            if (gameObject != null)
+                                gameObject.SetActive(true);
+
+                            room.arrow.localPosition = transform.localPosition;
+
+                            room.arrow.SetParent(this.transform, false);
+                        }
+                    }
 
                     __asset = asset;
                     break;
@@ -616,8 +690,8 @@ public class MahjongClientPlayer : Node
     private void RpcHold(float time)
     {
         MahjongClientRoom room = MahjongClientRoom.instance;
-        if (room != null && room.animator != null)
-            room.animator.SetTrigger(type.ToString());
+        if (room != null && room.wind != null)
+            room.wind.SetTrigger(type.ToString());
 
         __holdTime = time + Time.time;
 
@@ -752,6 +826,10 @@ public class MahjongClientPlayer : Node
         if (room == null)
             return;
 
+        GameObject gameObject = room.arrow == null ? null : room.arrow.gameObject;
+        if (gameObject != null)
+            gameObject.SetActive(false);
+
         if (playerIndex != index)
         {
             Client host = base.host as Client;
@@ -760,6 +838,8 @@ public class MahjongClientPlayer : Node
             Transform transform = asset == null ? null : asset.transform;
             if (transform == null)
                 return;
+
+            --player.__discardCount;
 
             transform.SetParent(this.transform, false);
             room.Group(asset, temp.index, temp.count);
@@ -791,10 +871,10 @@ public class MahjongClientPlayer : Node
         Rpc((short)MahjongNetworkRPCHandle.Throw, writer.AsArray(), writer.Position);
     }
 
-    private void CmdReady(byte index)
+    private void CmdReady(byte code)
     {
         NetworkWriter writer = new NetworkWriter();
-        writer.Write(index);
+        writer.Write(code);
 
         Rpc((short)MahjongNetworkRPCHandle.Ready, writer.AsArray(), writer.Position);
     }
@@ -815,6 +895,7 @@ public class MahjongClientPlayer : Node
         RegisterHandler((short)MahjongNetworkRPCHandle.Throw, __OnThrow);
         RegisterHandler((short)MahjongNetworkRPCHandle.Try, __OnTry);
         RegisterHandler((short)MahjongNetworkRPCHandle.Do, __OnDo);
+        RegisterHandler((short)MahjongNetworkRPCHandle.Score, __OnScore);
 
         onCreate += __OnCreate;
     }
@@ -896,7 +977,6 @@ public class MahjongClientPlayer : Node
                 LinkedListNode<Selector> selectorNode;
                 Selector selector;
                 Handle handle;
-                int index = 0;
                 for (LinkedListNode<Handle> hanldeNode = __handles == null ? null : __handles.First; hanldeNode != null; hanldeNode = hanldeNode.Next)
                 {
                     handle = hanldeNode.Value;
@@ -905,7 +985,7 @@ public class MahjongClientPlayer : Node
                         for (selectorNode = __selectors.First; selectorNode != null; selectorNode = selectorNode.Next)
                         {
                             selector = selectorNode.Value;
-                            if (selector.ruleNode.index == index)
+                            if (selector.index == handle.tile.index)
                             {
                                 handle.tile.asset.onSelected = selector.handler;
 
@@ -920,8 +1000,6 @@ public class MahjongClientPlayer : Node
                             }
                         }
                     }
-
-                    ++index;
                 }
             }
         }

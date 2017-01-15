@@ -25,8 +25,17 @@ public enum MahjongNetworkRPCHandle
     Score
 }
 
+public enum MahjongPlayerStatus
+{
+    Turn, 
+    Show
+}
+
 public enum MahjongScoreType : byte
 {
+    Flower, 
+    Kong, 
+
     Normal,
     SevenPairsHand, 
     AllPongHand, 
@@ -39,6 +48,13 @@ public enum MahjongScoreType : byte
     Single,
     HeavenlyHand,
     EarthlyHand
+}
+
+public enum MahjongReadyType : byte
+{
+    None, 
+    Hide, 
+    Show
 }
 
 public class NameMessage : MessageBase
@@ -143,27 +159,6 @@ public class MahjongShuffleMessage : MessageBase
     }*/
 }
 
-public class MahjongInitMessage : MahjongShuffleMessage
-{
-    public short playerIndex;
-
-    public MahjongInitMessage(
-        byte point0, 
-        byte point1, 
-        byte point2, 
-        byte point3, 
-        short dealerIndex, 
-        short playerIndex) : base(
-            point0, 
-            point1, 
-            point2, 
-            point3, 
-            dealerIndex)
-    {
-        this.playerIndex = playerIndex;
-    }
-}
-
 public class MahjongTileCodeMessage : MessageBase
 {
     public byte count;
@@ -263,8 +258,47 @@ public class MahjongRuleMessage : MessageBase
 
 public class MahjongReadyHandMessage : MessageBase
 {
+    public ReadOnlyCollection<byte> indices;
+
     public MahjongReadyHandMessage()
     {
 
+    }
+
+    public MahjongReadyHandMessage(ReadOnlyCollection<byte> indices)
+    {
+        this.indices = indices;
+    }
+
+    public override void Serialize(NetworkWriter writer)
+    {
+        if (writer == null)
+            return;
+
+        byte count = (byte)(indices == null ? 0 : indices.Count);
+        writer.Write(count);
+        if(count > 0)
+        {
+            foreach (byte index in indices)
+                writer.Write(index);
+        }
+    }
+
+    public override void Deserialize(NetworkReader reader)
+    {
+        if (reader == null)
+            return;
+
+        int count = reader.ReadByte();
+        if (count > 0)
+        {
+            List<byte> indices = new List<byte>();
+            for (int i = 0; i < count; ++i)
+                indices.Add(reader.ReadByte());
+
+            this.indices = indices.AsReadOnly();
+        }
+        else
+            this.indices = null;
     }
 }

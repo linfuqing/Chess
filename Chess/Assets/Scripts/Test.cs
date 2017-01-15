@@ -11,23 +11,11 @@ public class Test : MonoBehaviour
         Debug.Log(rule.Check(new Mahjong.Player.Enumerator(new LinkedList<int>(new int[]
         {
             //new Mahjong.Tile(Mahjong.TileType.Dots, 1) << 2),
-            new Mahjong.Tile(Mahjong.TileType.Dots, 1) << 2,//0
-            new Mahjong.Tile(Mahjong.TileType.Dots, 1) << 2,//1
+            new Mahjong.Tile(Mahjong.TileType.Bamboo, 0) << 2,//0
+            new Mahjong.Tile(Mahjong.TileType.Bamboo, 0) << 2,//1
 
-            new Mahjong.Tile(Mahjong.TileType.Dots, 1) << 2,//2
-            new Mahjong.Tile(Mahjong.TileType.Dots, 2) << 2,//3
-            new Mahjong.Tile(Mahjong.TileType.Dots, 2) << 2,//4
-
-            new Mahjong.Tile(Mahjong.TileType.Dots, 3) << 2,//5
-            new Mahjong.Tile(Mahjong.TileType.Dots, 3) << 2,//6
-
-            new Mahjong.Tile(Mahjong.TileType.Dots, 4) << 2,//7
-            new Mahjong.Tile(Mahjong.TileType.Dots, 4) << 2,//8
-            new Mahjong.Tile(Mahjong.TileType.Dots, 5) << 2,//9
-
-            new Mahjong.Tile(Mahjong.TileType.Dots, 5) << 2,//10
-            new Mahjong.Tile(Mahjong.TileType.Dots, 6) << 2,//11
-            new Mahjong.Tile(Mahjong.TileType.Dots, 6) << 2,//12
+            new Mahjong.Tile(Mahjong.TileType.Bamboo, 5) << 2,//2
+            new Mahjong.Tile(Mahjong.TileType.Bamboo, 5) << 2,//3
 
         })), delegate(bool isEye, int count, int index, IEnumerable<Mahjong.Rule.WinFlag> winFlags)
         {

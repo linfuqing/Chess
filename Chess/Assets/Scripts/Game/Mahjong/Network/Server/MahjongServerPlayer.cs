@@ -58,9 +58,9 @@ public class MahjongServerPlayer : ServerObject
         RpcThrow(index, group, instance);
     }
 
-    public void Ready()
+    public void Ready(bool isShow)
     {
-        RpcReady();
+        RpcReady(isShow);
     }
 
     public void Try(Mahjong.RuleType type)
@@ -99,9 +99,10 @@ public class MahjongServerPlayer : ServerObject
         RpcEnd((short)MahjongNetworkRPCHandle.Throw);
     }
 
-    private void RpcReady()
+    private void RpcReady(bool isShow)
     {
-        RpcStart();
+        NetworkWriter writer = RpcStart();
+        writer.Write(isShow);
         RpcEnd((short)MahjongNetworkRPCHandle.Ready);
     }
 

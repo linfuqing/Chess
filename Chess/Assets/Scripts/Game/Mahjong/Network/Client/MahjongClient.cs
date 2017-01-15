@@ -29,6 +29,7 @@ public class MahjongClient : Client
         base.Create();
         
         RegisterHandler((short)MahjongNetworkMessageType.TileCodes, __OnTileCodes);
+        RegisterHandler((short)MahjongNetworkMessageType.ReadyHand, __OnReadyHand);
         RegisterHandler((short)MahjongNetworkMessageType.RuleNodes, __OnRuleNodes);
     }
 
@@ -116,25 +117,76 @@ public class MahjongClient : Client
 
     private void __OnReadyHand(NetworkMessage message)
     {
-        MahjongClientRoom room = MahjongClientRoom.instance;
-        if (room == null || room.ready == null)
+        MahjongReadyHandMessage readyHandMessage = message == null ? null : message.ReadMessage<MahjongReadyHandMessage>();
+        if (readyHandMessage == null)
             return;
 
-        GameObject gameObject = room.ready.gameObject;
+        MahjongClientRoom room = MahjongClientRoom.instance;
+        if (room == null)
+            return;
+
+        GameObject gameObject = room.pass.gameObject;
         if (gameObject != null)
             gameObject.SetActive(true);
 
         Button.ButtonClickedEvent buttonClickedEvent = new Button.ButtonClickedEvent();
-        room.ready.onClick = buttonClickedEvent;
-        buttonClickedEvent.AddListener(__ReadyHand);
-
-        gameObject = room.pass.gameObject;
-        if (gameObject != null)
-            gameObject.SetActive(true);
-
-        buttonClickedEvent = new Button.ButtonClickedEvent();
         room.pass.onClick = buttonClickedEvent;
         buttonClickedEvent.AddListener(__PassReady);
+
+        if (room.show != null)
+        {
+            gameObject = room.show.gameObject;
+            if (gameObject != null)
+                gameObject.SetActive(true);
+
+            int count = readyHandMessage.indices == null ? 0 : readyHandMessage.indices.Count;
+            buttonClickedEvent = new Button.ButtonClickedEvent();
+            room.show.onClick = buttonClickedEvent;
+            UnityAction handler = delegate ()
+            {
+                MahjongClientPlayer player = localPlayer as MahjongClientPlayer;
+                for (int i = 0; i < count; ++i)
+                {
+                    int index = i;
+                    player.Select(readyHandMessage.indices[i], delegate ()
+                    {
+                        player.Ready((byte)((index << 2) | (int)MahjongReadyType.Show));
+
+                        __ClearReady();
+                    });
+                }
+            };
+
+            buttonClickedEvent.AddListener(handler);
+        }
+
+        if (room.hide != null)
+        {
+            gameObject = room.hide.gameObject;
+            if (gameObject != null)
+                gameObject.SetActive(true);
+
+            int count = readyHandMessage.indices == null ? 0 : readyHandMessage.indices.Count;
+            buttonClickedEvent = new Button.ButtonClickedEvent();
+            room.hide.onClick = buttonClickedEvent;
+            UnityAction handler = delegate ()
+            {
+                MahjongClientPlayer player = localPlayer as MahjongClientPlayer;
+                for (int i = 0; i < count; ++i)
+                {
+                    int index = i;
+                    player.Select(readyHandMessage.indices[i], delegate ()
+                    {
+                        player.Ready((byte)((index << 2) | (int)MahjongReadyType.Hide));
+
+                        __ClearReady();
+                    });
+                }
+            };
+
+            buttonClickedEvent.AddListener(handler);
+        }
+
 
         Invoke("__ClearReady", readyTime);
     }
@@ -215,21 +267,12 @@ public class MahjongClient : Client
             Invoke("__ClearTry", tryTime);
         }
     }
-
-    private void __ReadyHand()
-    {
-        MahjongClientPlayer player = localPlayer as MahjongClientPlayer;
-        if (player != null)
-            player.Ready(1);
-
-        __ClearReady();
-    }
-
+    
     private void __PassReady()
     {
         MahjongClientPlayer player = localPlayer as MahjongClientPlayer;
         if (player != null)
-            player.Ready(0);
+            player.Ready(255);
 
         __ClearReady();
     }
@@ -277,7 +320,7 @@ public class MahjongClient : Client
                 foreach (int ruleIndex in ruleIndices)
                 {
                     int temp = ruleIndex;
-                    player.Select(ruleNodes[temp], delegate ()
+                    player.Select(ruleNodes[temp].index, delegate ()
                     {
                         player.Try((byte)temp);
 
@@ -296,6 +339,10 @@ public class MahjongClient : Client
     {
         CancelInvoke("__ClearReady");
 
+        MahjongClientPlayer player = localPlayer as MahjongClientPlayer;
+        if (player != null)
+            player.Unselect();
+
         MahjongClientRoom room = MahjongClientRoom.instance;
         if (room == null)
             return;
@@ -309,11 +356,20 @@ public class MahjongClient : Client
                 gameObject.SetActive(false);
         }
 
-        if (room.ready != null)
+        if (room.show != null)
         {
-            room.ready.onClick = null;
+            room.show.onClick = null;
 
-            GameObject gameObject = room.ready.gameObject;
+            GameObject gameObject = room.show.gameObject;
+            if (gameObject != null)
+                gameObject.SetActive(false);
+        }
+
+        if (room.hide != null)
+        {
+            room.hide.onClick = null;
+
+            GameObject gameObject = room.hide.gameObject;
             if (gameObject != null)
                 gameObject.SetActive(false);
         }
@@ -323,13 +379,13 @@ public class MahjongClient : Client
     {
         CancelInvoke("__ClearTry");
 
-        MahjongClientRoom room = MahjongClientRoom.instance;
-        if (room == null)
-            return;
-
         MahjongClientPlayer player = localPlayer as MahjongClientPlayer;
         if (player != null)
             player.Unselect();
+
+        MahjongClientRoom room = MahjongClientRoom.instance;
+        if (room == null)
+            return;
 
         if(room.pass != null)
         {

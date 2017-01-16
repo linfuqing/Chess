@@ -17,13 +17,15 @@ public class Test : MonoBehaviour
             new Mahjong.Tile(Mahjong.TileType.Bamboo, 5) << 2,//2
             new Mahjong.Tile(Mahjong.TileType.Bamboo, 5) << 2,//3
 
-        })), delegate(bool isEye, int count, int index, IEnumerable<Mahjong.Rule.WinFlag> winFlags)
+        })), rule.winFlags, delegate(bool isEye, int count, int index, IEnumerable<Mahjong.Rule.WinFlag> winFlags)
         {
             string temp = isEye.ToString() + ':' + count + ':' + index;
             foreach (Mahjong.Rule.WinFlag winFlag in winFlags)
                 temp += ", " + winFlag.index;
 
             Debug.Log(temp);
+
+            return true;
             /*if (indices == null)
                 indices = new List<KeyValuePair<int, IEnumerable<Mahjong.Rule.WinFlag>>>();
 

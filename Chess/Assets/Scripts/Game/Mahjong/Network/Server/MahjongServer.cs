@@ -41,33 +41,51 @@ public class MahjongServer : Server
 
         public class Rule258 : Rule
         {
-            public override IEnumerable<WinFlag> Check(IEnumerator enumerator)
+            private bool __isCheck;
+            private IEnumerator __enumerator;
+
+            public override bool CheckEye(int index, int count, ref IEnumerable<WinFlag> winFlags)
             {
-                IEnumerator temp = enumerator.Clone();
-                IEnumerable <WinFlag> winFlags = base.Check(enumerator);
-                if (winFlags == null || temp == null || !temp.MoveNext())
-                    return winFlags;
-
-                Mahjong.Tile source = Mahjong.Tile.Get(temp.Current), destination;
-                int count = 1;
-                while(temp.MoveNext())
+                if(count == 2 && __isCheck)
                 {
-                    destination = Mahjong.Tile.Get(temp.Current);
-                    if (source.type == destination.type && source.number == destination.number)
-                        ++count;
-                    else
+                    IEnumerator enumerator = __enumerator == null ? null : __enumerator.Clone();
+                    if(enumerator != null)
                     {
-                        if(count == 2)
-                            return source.number == 2 || source.number == 5 || source.number == 8 ? winFlags : null;
+                        for (int i = 0; i <= index; ++i)
+                        {
+                            if (!enumerator.MoveNext())
+                                return false;
+                        }
 
-                        count = 1;
+                        Mahjong.Tile tile = Mahjong.Tile.Get(enumerator.Current);
+                        if (tile.number != 1 && tile.number != 4 && tile.number != 7)
+                            return false;
                     }
+
+                    __isCheck = false;
                 }
 
-                if (count == 2)
-                    return source.number == 2 || source.number == 5 || source.number == 8 ? winFlags : null;
+                return base.CheckEye(index, count, ref winFlags);
+            }
 
-                return null;
+            public override bool Check(IEnumerator enumerator, ref IEnumerable<WinFlag> winFlags)
+            {
+                __isCheck = true;
+                __enumerator = enumerator.Clone();
+                bool result = base.Check(enumerator, ref winFlags);
+                __enumerator = null;
+
+                return result;
+            }
+
+            public override bool Check(IEnumerator enumerator, IEnumerable<WinFlag> winFlags, Func<bool, int, int, IEnumerable<WinFlag>, bool> handler)
+            {
+                __isCheck = true;
+                __enumerator = enumerator.Clone();
+                bool result = base.Check(enumerator, winFlags, handler);
+                __enumerator = null;
+
+                return result;
             }
         }
 

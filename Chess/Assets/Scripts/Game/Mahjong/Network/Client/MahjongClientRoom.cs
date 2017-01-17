@@ -284,10 +284,9 @@ public class MahjongClientRoom : MonoBehaviour
         Transform transform = asset == null ? null : asset.transform;
         if (transform == null)
             return;
-
-        transform.localEulerAngles = new Vector3(90.0f, 0.0f, 0.0f);
+        
         transform.localPosition = discardPosition + new Vector3(width * (index % 5), 0.0f, -height * (index / 5));
-
+        
         asset.Throw();
     }
 
@@ -296,10 +295,9 @@ public class MahjongClientRoom : MonoBehaviour
         Transform transform = asset == null ? null : asset.transform;
         if (transform == null)
             return;
-
-        transform.localEulerAngles = new Vector3(90.0f, 0.0f, 0.0f);
+        
         transform.localPosition = scorePosition + new Vector3(width * index, 0.0f, 0.0f);
-
+        
         asset.Throw();
     }
 

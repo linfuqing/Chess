@@ -47,6 +47,32 @@ public class MahjongAsset : MonoBehaviour, IPointerClickHandler, IPointerDownHan
             return __pointerEventData != null;
         }
     }
+
+    public Vector3 position
+    {
+        get
+        {
+            Camera camera = __pointerEventData == null ? null : __pointerEventData.pressEventCamera;
+            return camera == null ? Vector3.zero : camera.ScreenToWorldPoint(__position - __offset);
+        }
+
+        set
+        {
+            Camera camera = __pointerEventData == null ? null : __pointerEventData.pressEventCamera;
+            if (camera != null)
+                __position = camera.WorldToScreenPoint(value) + __offset;
+        }
+    }
+
+    public void Visible()
+    {
+        transform.localEulerAngles = new Vector3(90.0f, 0.0f, 0.0f);
+    }
+
+    public void Hide()
+    {
+        transform.localEulerAngles = Vector3.zero;
+    }
     
     public void Move()
     {
@@ -61,7 +87,7 @@ public class MahjongAsset : MonoBehaviour, IPointerClickHandler, IPointerDownHan
 
     public void Throw()
     {
-
+        Visible();
     }
 
     private void __OnMove()
@@ -138,7 +164,7 @@ public class MahjongAsset : MonoBehaviour, IPointerClickHandler, IPointerDownHan
         if (onDiscard != null && (__pointerEventData.position - (Vector2)__pointerEventData.pressEventCamera.WorldToScreenPoint(__position)).sqrMagnitude > sqrDistance)
             onDiscard();
 
-        Camera camera = eventData.pressEventCamera;
+        Camera camera = __pointerEventData.pressEventCamera;
         if (camera != null)
             transform.position = camera.ScreenToWorldPoint(__position - __offset);
 

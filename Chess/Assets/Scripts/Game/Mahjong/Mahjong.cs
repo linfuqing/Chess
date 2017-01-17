@@ -1569,7 +1569,7 @@ public class Mahjong
             __handleTileIndex = -1;
         }
 
-        public virtual int Score(RuleType type, int playerIndex, IEnumerable<Rule.WinFlag> winFlags)
+        public virtual int Score(RuleType type, int playerIndex, int tileIndex, IEnumerable<Rule.WinFlag> winFlags)
         {
             return 0;
         }
@@ -2393,7 +2393,7 @@ public class Mahjong
 
                     instance = new LinkedListNode<int>(tileIndex);
                     __Add(instance);
-                    temp = Score(RuleType.Win, playerIndex, __winFlags[ruleNode.index]);
+                    temp = Score(RuleType.Win, playerIndex, tileIndex, __winFlags[ruleNode.index]);
                     /*if (__handTileIndices != null)
                         __handTileIndices.Remove(instance);*/
 
@@ -2411,7 +2411,7 @@ public class Mahjong
                         if (winFlags != null)
                         {
                             player.__Add(instance);
-                            temp = player.Score(RuleType.Win, playerIndex, winFlags);
+                            temp = player.Score(RuleType.Win, playerIndex, tileIndex, winFlags);
                             /*if (player.__handTileIndices != null)
                                 player.__handTileIndices.Remove(instance);*/
 
@@ -2436,7 +2436,7 @@ public class Mahjong
                     if (ruleNode.index < 0 || __winFlags == null || __winFlags.Count < ruleNode.index)
                         return -1;
 
-                    temp = Score(RuleType.SelfDraw, __index, __winFlags[ruleNode.index]);
+                    temp = Score(RuleType.SelfDraw, __index, GetHandTileIndex(__handleTileIndex), __winFlags[ruleNode.index]);
                     __score += temp;
 
                     count = Math.Min(4, __mahjong.__players == null ? 0 : __mahjong.__players.Length);
@@ -2472,7 +2472,7 @@ public class Mahjong
 
                     instance = new LinkedListNode<int>(player.GetHandTileIndex(player.__handleTileIndex));
                     __Add(instance);
-                    temp = Score(RuleType.BreakKong, playerIndex, __winFlags[ruleNode.index]);
+                    temp = Score(RuleType.BreakKong, playerIndex, instance.Value, __winFlags[ruleNode.index]);
                     __score += temp;
                     
                     player.__score -= temp;
@@ -2491,7 +2491,7 @@ public class Mahjong
                     if (ruleNode.index < 0 || __winFlags == null || __winFlags.Count < ruleNode.index)
                         return -1;
                     
-                    temp = Score(RuleType.OverKong, __kongPlayerIndex, __winFlags[ruleNode.index]);
+                    temp = Score(RuleType.OverKong, __kongPlayerIndex, GetHandTileIndex(__handleTileIndex), __winFlags[ruleNode.index]);
                     __score += temp;
 
                     if (__mahjong.__players != null &&

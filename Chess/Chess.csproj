@@ -88,6 +88,7 @@
     <Compile Include="Assets\Scripts\Game\Mahjong\Network\Server\MahjongServerMain.cs" />
     <Compile Include="Assets\Scripts\Game\Mahjong\Network\Server\MahjongServerPlayer.cs" />
     <Compile Include="Assets\Scripts\Game\Mahjong\UI\MahjongFinishPlayerStyle.cs" />
+    <Compile Include="Assets\Scripts\Game\Mahjong\UI\MahjongFinshTileStyle.cs" />
     <Compile Include="Assets\Scripts\Test.cs" />
     <Compile Include="Assets\Scripts\ZG\Network\UnityUtils\Client.cs" />
     <Compile Include="Assets\Scripts\ZG\Network\UnityUtils\Host.cs" />

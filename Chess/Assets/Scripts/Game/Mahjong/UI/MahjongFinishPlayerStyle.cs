@@ -7,7 +7,7 @@ public class MahjongFinishPlayerStyle : MonoBehaviour
     [Serializable]
     public struct Tiles
     {
-        public RawImage[] images;
+        public MahjongFinshTileStyle[] styles;
     }
 
     [Serializable]

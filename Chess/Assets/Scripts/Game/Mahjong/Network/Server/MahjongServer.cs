@@ -138,7 +138,7 @@ public class MahjongServer : Server
                 __room = room;
             }
 
-            public override int Score(Mahjong.RuleType type, int playerIndex, IEnumerable<Mahjong.Rule.WinFlag> winFlags)
+            public override int Score(Mahjong.RuleType type, int playerIndex, int tileIndex, IEnumerable<Mahjong.Rule.WinFlag> winFlags)
             {
                 MahjongServer host = instance == null ? null : instance.host as MahjongServer;
                 if (host == null)
@@ -148,7 +148,8 @@ public class MahjongServer : Server
                 if (writer != null)
                 {
                     writer.Write((byte)((int)type - (int)Mahjong.RuleType.Win));
-                    writer.Write((byte)(((int)type + 4 - index) & 3));
+                    writer.Write((byte)(((int)playerIndex + 4 - index) & 3));
+                    writer.Write((byte)Mahjong.Tile.Get(tileIndex));
                 }
 
                 int score = 0, kongCount = base.kongCount;
@@ -335,7 +336,20 @@ public class MahjongServer : Server
 
                 return true;
             }
+            
+            public bool Ready(bool isShow)
+            {
+                if (!Ready())
+                    return false;
 
+                __isReadyShow = isShow;
+
+                if (__instance != null)
+                    __instance.Ready(isShow ? null : (IEnumerable<KeyValuePair<int, int>>)this);
+
+                return true;
+            }
+            
             public bool Draw()
             {
                 return Draw(__Add, __Remove);
@@ -354,7 +368,7 @@ public class MahjongServer : Server
 
                 return false;
             }
-
+            
             public new bool Try(int index)
             {
                 Mahjong.RuleType type = Get(index).type;
@@ -475,12 +489,7 @@ public class MahjongServer : Server
                 index = __readyHandleIndices[index];
                 __OnThrow(index);
 
-                __isReadyShow = type == MahjongReadyType.Show;
-                if(Ready())
-                {
-                    if (__instance != null)
-                        __instance.Ready(__isReadyShow);
-                }
+                Ready(type == MahjongReadyType.Show);
             }
 
             private void __OnTry(byte index)
@@ -512,17 +521,17 @@ public class MahjongServer : Server
                             {
                                 case Mahjong.RuleType.Chow:
                                 case Mahjong.RuleType.Pong:
-                                    writer.Write((byte)group.x);
-                                    writer.Write((byte)group.y);
-                                    writer.Write((byte)group.z);
+                                    writer.Write((byte)Mahjong.Tile.Get(group.x));
+                                    writer.Write((byte)Mahjong.Tile.Get(group.y));
+                                    writer.Write((byte)Mahjong.Tile.Get(group.z));
                                     break;
                                 case Mahjong.RuleType.Kong:
                                 case Mahjong.RuleType.HiddenKong:
                                 case Mahjong.RuleType.MeldedKong:
-                                    writer.Write((byte)group.x);
-                                    writer.Write((byte)group.y);
-                                    writer.Write((byte)group.z);
-                                    writer.Write((byte)group.w);
+                                    writer.Write((byte)Mahjong.Tile.Get(group.x));
+                                    writer.Write((byte)Mahjong.Tile.Get(group.y));
+                                    writer.Write((byte)Mahjong.Tile.Get(group.z));
+                                    writer.Write((byte)Mahjong.Tile.Get(group.w));
                                     break;
                                 default:
                                     break;
@@ -535,7 +544,7 @@ public class MahjongServer : Server
                     if(poolTileIndices != null)
                     {
                         foreach(int poolTileIndex in poolTileIndices)
-                            writer.Write((byte)poolTileIndex);
+                            writer.Write((byte)Mahjong.Tile.Get(poolTileIndex));
                     }
 
                     int count = __tileCodes == null ? 0 : base.count;
@@ -708,14 +717,11 @@ public class MahjongServer : Server
                                             ruleType = __mahjong.ruleType;
                                             if (ruleType == Mahjong.RuleType.BreakKong)
                                             {
-                                                if (__mahjong.rulePlayerIndex == temp.index)
-                                                {
-                                                    if (!temp.End(__mahjong.ruleNodeIndex))
-                                                        continue;
-                                                }
-                                                
-                                                __isRunning = false;
+                                                __Break();
 
+                                                if (__mahjong.rulePlayerIndex == temp.index)
+                                                    temp.End(__mahjong.ruleNodeIndex);
+                                                
                                                 break;
                                             }
                                         }
@@ -734,8 +740,8 @@ public class MahjongServer : Server
 
                                     if (ruleType == Mahjong.RuleType.SelfDraw || ruleType == Mahjong.RuleType.OverKong)
                                     {
-                                        __isRunning = false;
-
+                                        __Break();
+                                        
                                         break;
                                     }
                                 }
@@ -760,7 +766,7 @@ public class MahjongServer : Server
                                     ruleType = __mahjong.ruleType;
                                     if (ruleType == Mahjong.RuleType.Win)
                                     {
-                                        __isRunning = false;
+                                        __Break();
 
                                         break;
                                     }
@@ -789,9 +795,34 @@ public class MahjongServer : Server
                 yield return new WaitForSeconds(2.0f);
             }
             
-            __Break();
+            if (players != null)
+            {
+                int j, count;
+                Node node;
+                ZG.Network.Server host;
+                MahjongServerPlayer target;
+                ZG.Network.Lobby.Node result;
+                foreach (Mahjong.Player instance in players)
+                {
+                    player = instance as Player;
+                    target = player == null ? null : player.instance;
+                    result = target == null ? null : target.node as ZG.Network.Lobby.Node;
+                    if (result != null)
+                    {
+                        host = target.host;
+                        if (host != null && host.GetNode(result.index, out node) && node.connectionId < 0)
+                            host.Unregister(result.index, null);
+                        else
+                        {
+                            count = result.count;
+                            for (j = 0; j < count; ++j)
+                                result.NotReady();
+                        }
+                    }
+                }
+            }
         }
-
+        
         public void Break()
         {
             __isRunning = false;
@@ -799,30 +830,15 @@ public class MahjongServer : Server
 
         private void __Break()
         {
-            int i, j, count;
-            Node node;
             Player player;
-            MahjongServerPlayer instance;
-            ZG.Network.Server host;
-            ZG.Network.Lobby.Node temp;
-            for(i = 0; i < 4; ++i)
+            for (int i = 0; i < 4; ++i)
             {
                 player = __mahjong.Get(i) as Player;
-                instance = player == null ? null : player.instance;
-                temp = instance == null ? null : instance.node as ZG.Network.Lobby.Node;
-                if (temp != null)
-                {
-                    host = instance.host;
-                    if (host != null && host.GetNode(temp.index, out node) && node.connectionId < 0)
-                        host.Unregister(temp.index, null);
-                    else
-                    {
-                        count = temp.count;
-                        for (j = 0; j < count; ++j)
-                            temp.NotReady();
-                    }
-                }
+                if (player != null)
+                    player.Ready(true);
             }
+
+            __isRunning = false;
         }
     }
 

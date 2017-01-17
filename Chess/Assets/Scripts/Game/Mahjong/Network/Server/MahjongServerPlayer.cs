@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
 using ZG.Network;
@@ -58,9 +59,9 @@ public class MahjongServerPlayer : ServerObject
         RpcThrow(index, group, instance);
     }
 
-    public void Ready(bool isShow)
+    public void Ready(IEnumerable<KeyValuePair<int, int>> handTileIndices)
     {
-        RpcReady(isShow);
+        RpcReady(handTileIndices);
     }
 
     public void Try(Mahjong.RuleType type)
@@ -99,10 +100,19 @@ public class MahjongServerPlayer : ServerObject
         RpcEnd((short)MahjongNetworkRPCHandle.Throw);
     }
 
-    private void RpcReady(bool isShow)
+    private void RpcReady(IEnumerable<KeyValuePair<int, int>> handTileIndices)
     {
         NetworkWriter writer = RpcStart();
-        writer.Write(isShow);
+        if(handTileIndices != null)
+        {
+            foreach (KeyValuePair<int, int> pair in handTileIndices)
+            {
+                writer.Write((byte)pair.Key);
+                writer.Write(Mahjong.Tile.Get(pair.Value));
+            }
+        }
+
+        writer.Write((byte)255);
         RpcEnd((short)MahjongNetworkRPCHandle.Ready);
     }
 

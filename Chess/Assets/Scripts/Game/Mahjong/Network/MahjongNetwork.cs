@@ -22,6 +22,7 @@ public enum MahjongNetworkRPCHandle
     Ready, 
     Try, 
     Do, 
+    Show, 
     Score
 }
 

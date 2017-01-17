@@ -173,29 +173,20 @@ public class MahjongClientPlayer : Node
         CmdTry(index);
     }
 
-    private int __Add(Tile tile)
+    private LinkedListNode<Handle> __Add(Tile tile)
     {
         if (__handles == null)
             __handles = new LinkedList<Handle>();
-
-        int index = 0;
+        
         Handle result = new Handle(tile, 0.0f), temp;
         for (LinkedListNode<Handle> node = __handles.First; node != null; node = node.Next)
         {
             temp = node.Value;
             if (temp.tile.code > tile.code)
-            {
-                __handles.AddBefore(node, result);
-
-                return index;
-            }
-
-            ++index;
+                return __handles.AddBefore(node, result);
         }
         
-        __handles.AddLast(result);
-
-        return index;
+        return __handles.AddLast(result);
     }
 
     private void __Throw(Tile tile, byte group, Mahjong.Tile instance)
@@ -349,68 +340,8 @@ public class MahjongClientPlayer : Node
     {
         if (reader == null)
             return;
-        
-        byte index;
-        int count = 0;
-        Cache cache;
-        Handle handle;
-        LinkedListNode<Handle> handleNode;
-        LinkedListNode<Cache> cacheNode;
-        while(true)
-        {
-            index = reader.ReadByte();
-            if (index == 255)
-                break;
 
-            ++count;
-
-            if (__handle != null)
-            {
-                cache = __handle.Value;
-                if (cache.tile.index == index)
-                {
-                    if (cache.tile.asset != null)
-                        cache.tile.asset.Visible();
-
-                    __handle.Value = new Cache(new Tile(index, reader.ReadByte(), cache.tile.asset), cache.group, cache.instance);
-
-                    continue;
-                }
-            }
-
-            for(handleNode = __handles == null ? null : __handles.First; handleNode != null; handleNode = handleNode.Next)
-            {
-                handle = handleNode.Value;
-                if (handle.tile.index == index)
-                {
-                    if (handle.tile.asset != null)
-                        handle.tile.asset.Visible();
-
-                    handleNode.Value = new Handle(new Tile(index, reader.ReadByte(), handle.tile.asset), handle.velocity);
-
-                    break;
-                }
-            }
-
-            for (cacheNode = __caches == null ? null : __caches.First; cacheNode != null; cacheNode = cacheNode.Next)
-            {
-                cache = cacheNode.Value;
-                if (cache.tile.index == index)
-                {
-                    if (cache.tile.asset != null)
-                        cache.tile.asset.Visible();
-
-                    cacheNode.Value = new Cache(new Tile(index, reader.ReadByte(), cache.tile.asset), cache.group, cache.instance);
-
-                    continue;
-                }
-            }
-
-            if (handleNode != null)
-                continue;
-        }
-
-        __isShow = count > 0;
+        RpcReady(reader.ReadBoolean());
     }
 
     private void __OnTry(NetworkReader reader)
@@ -427,6 +358,84 @@ public class MahjongClientPlayer : Node
             return;
 
         RpcDo(reader.ReadInt16(), (Mahjong.RuleType)reader.ReadByte(), reader.ReadByte());
+    }
+    
+    private void __OnShow(NetworkReader reader)
+    {
+        if (reader == null)
+            return;
+
+        byte index, code;
+        int count = 0;
+        Cache cache;
+        Handle handle;
+        LinkedListNode<Handle> handleNode;
+        LinkedListNode<Cache> cacheNode;
+        MahjongClientRoom room = MahjongClientRoom.instance;
+        while (true)
+        {
+            index = reader.ReadByte();
+            if (index == 255)
+                break;
+
+            code = reader.ReadByte();
+
+            ++count;
+
+            if (__handle != null)
+            {
+                cache = __handle.Value;
+                if (cache.tile.index == index)
+                {
+                    if (room != null)
+                        room.As(cache.tile.asset, code);
+
+                    if (cache.tile.asset != null)
+                        cache.tile.asset.Visible();
+
+                    __handle.Value = new Cache(new Tile(index, code, cache.tile.asset), cache.group, cache.instance);
+
+                    continue;
+                }
+            }
+
+            for (handleNode = __handles == null ? null : __handles.First; handleNode != null; handleNode = handleNode.Next)
+            {
+                handle = handleNode.Value;
+                if (handle.tile.index == index)
+                {
+                    if (room != null)
+                        room.As(handle.tile.asset, code);
+
+                    if (handle.tile.asset != null)
+                        handle.tile.asset.Visible();
+
+                    handleNode.Value = new Handle(new Tile(index, code, handle.tile.asset), handle.velocity);
+
+                    break;
+                }
+            }
+
+            for (cacheNode = __caches == null ? null : __caches.First; cacheNode != null; cacheNode = cacheNode.Next)
+            {
+                cache = cacheNode.Value;
+                if (cache.tile.index == index)
+                {
+                    if (room != null)
+                        room.As(cache.tile.asset, code);
+
+                    if (cache.tile.asset != null)
+                        cache.tile.asset.Visible();
+
+                    cacheNode.Value = new Cache(new Tile(index, code, cache.tile.asset), cache.group, cache.instance);
+
+                    continue;
+                }
+            }
+
+            if (handleNode != null)
+                continue;
+        }
     }
 
     private void __OnScore(NetworkReader reader)
@@ -1064,17 +1073,16 @@ public class MahjongClientPlayer : Node
         for (i = 0; i < length; ++i)
         {
             instance = new Tile(reader.ReadByte(), reader.ReadByte(), room == null ? null : room.next);
-            transform = instance.asset == null ? null : instance.asset.transform;
-            if (transform == null)
-                continue;
 
-            transform.SetParent(this.transform, false);
-            transform.localPosition = room.handPosition + new Vector3(__Add(instance) * room.width, 0.0f, 0.0f);
+            __Add(instance);
 
-            if (__isShow)
-                instance.asset.Visible();
-            else
-                instance.asset.Hide();
+            if (instance.asset != null)
+            {
+                if (__isShow)
+                    instance.asset.Visible();
+                else
+                    instance.asset.Hide();
+            }
 
             if (host != null)
             {
@@ -1082,8 +1090,55 @@ public class MahjongClientPlayer : Node
 
                 __Discard(instance);
             }
-            
+
             ++__drawCount;
+        }
+            
+        i = 0;
+        if (__handles != null)
+        {
+            foreach(Handle handle in __handles)
+            {
+                transform = handle.tile.asset == null ? null : handle.tile.asset.transform;
+                if (transform == null)
+                    continue;
+
+                transform.SetParent(this.transform, false);
+                transform.localPosition = room.handPosition + new Vector3(i * room.width, 0.0f, 0.0f);
+
+                ++i;
+            }
+        }
+
+        byte code = reader.ReadByte();
+        if (code == 255)
+            __handle = null;
+        else
+        {
+            instance = new Tile(code, reader.ReadByte(), room.next);
+            if (instance.asset != null)
+            {
+                if (__isShow)
+                    instance.asset.Visible();
+                else
+                    instance.asset.Hide();
+            }
+
+            transform = instance.asset == null ? null : instance.asset.transform;
+            if (transform != null)
+            {
+                transform.SetParent(this.transform, false);
+                transform.localPosition = room.handPosition + new Vector3(i * room.width + room.offset, 0.0f, 0.0f);
+            }
+
+            if (host != null)
+            {
+                room.As(instance.asset, host.GetTile(instance.code));
+
+                __Discard(instance);
+            }
+
+            __handle = new LinkedListNode<Cache>(new Cache(instance, 255, null));
         }
     }
 
@@ -1211,6 +1266,11 @@ public class MahjongClientPlayer : Node
         }
     }
 
+    private void RpcReady(bool isShow)
+    {
+        __isShow = isShow;
+    }
+
     private void RpcTry(Mahjong.RuleType type)
     {
         __holdTime = 0.0f;
@@ -1306,8 +1366,10 @@ public class MahjongClientPlayer : Node
         RegisterHandler((short)MahjongNetworkRPCHandle.Hold, __OnHold);
         RegisterHandler((short)MahjongNetworkRPCHandle.Draw, __OnDraw);
         RegisterHandler((short)MahjongNetworkRPCHandle.Throw, __OnThrow);
+        RegisterHandler((short)MahjongNetworkRPCHandle.Ready, __OnReady);
         RegisterHandler((short)MahjongNetworkRPCHandle.Try, __OnTry);
         RegisterHandler((short)MahjongNetworkRPCHandle.Do, __OnDo);
+        RegisterHandler((short)MahjongNetworkRPCHandle.Show, __OnShow);
         RegisterHandler((short)MahjongNetworkRPCHandle.Score, __OnScore);
 
         onCreate += __OnCreate;
@@ -1336,15 +1398,23 @@ public class MahjongClientPlayer : Node
             for (LinkedListNode<Handle> node = __handles == null ? null : __handles.First; node != null; node = node.Next)
             {
                 handle = node.Value;
-                transform = (handle.tile.asset == null || handle.tile.asset.isDraging) ? null : handle.tile.asset.transform;
-                if (transform != null)
+                if (handle.tile.asset == null)
+                    continue;
+
+                if (handle.tile.asset.isDraging)
                 {
-                    position = transform.localPosition;
-                    position.x = Mathf.SmoothDamp(position.x, room.handPosition.x + room.width * index, ref handle.velocity, room.smoothTime, room.maxSpeed);
-                    transform.localPosition = position;
-
-
-                    node.Value = handle;
+                }
+                else
+                {
+                    transform = handle.tile.asset.transform;
+                    if (transform != null)
+                    {
+                        position = transform.localPosition;
+                        position.x = Mathf.SmoothDamp(position.x, room.handPosition.x + room.width * index, ref handle.velocity, room.smoothTime, room.maxSpeed);
+                        transform.localPosition = position;
+                        
+                        node.Value = handle;
+                    }
                 }
 
                 ++index;

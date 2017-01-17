@@ -924,8 +924,7 @@ public class Mahjong
             if (enumerator == null || !enumerator.MoveNext())
             {
                 int count = Math.Min(Math.Min(previousCount, currentCount), nextCount), temp;
-                IEnumerable<WinFlag> result;
-
+                IEnumerable<WinFlag> result = winFlags;
                 if (count > 0 && !Check(index, currentCount + offset, nextCount, count, ref winFlags))
                 {
                     if ((source.number > 1 && previousCount != count && previousCount - count < 2 ? 1 : 0) +
@@ -933,21 +932,21 @@ public class Mahjong
                     (source.number < 8 && nextCount != count && nextCount - count < 2 ? 1 : 0) == 2)
                     {
                         ++count;
-                        result = winFlags;
-                        if ((nextCount <= count || CheckEye(index, nextCount - count, ref result)) &&
-                            (currentCount <= count || CheckEye(index - nextCount, currentCount - count, ref result)) &&
-                            (previousCount <= count || CheckEye(index - nextCount - currentCount - offset, previousCount - count, ref result)))
+                        winFlags = result;
+                        if ((nextCount <= count || CheckEye(index, nextCount - count, ref winFlags)) &&
+                            (currentCount <= count || CheckEye(index - nextCount, currentCount - count, ref winFlags)) &&
+                            (previousCount <= count || CheckEye(index - nextCount - currentCount - offset, previousCount - count, ref winFlags)))
                         {
                             temp = index;
-                            if (nextCount < count && source.number < 8 && (handler == null || handler(false, 2, temp, result)))
+                            if (nextCount < count && source.number < 8 && (handler == null || handler(false, 2, temp, winFlags)))
                                 return true;
 
                             temp -= nextCount;
-                            if (currentCount < count && source.number > 0 && (handler == null || handler(false, 1, temp, result)))
+                            if (currentCount < count && source.number > 0 && (handler == null || handler(false, 1, temp, winFlags)))
                                 return true;
 
                             temp -= currentCount + offset;
-                            if (previousCount < count && source.number > 1 && (handler == null || handler(false, 0, temp, result)))
+                            if (previousCount < count && source.number > 1 && (handler == null || handler(false, 0, temp, winFlags)))
                                 return true;
                         }
 
@@ -961,27 +960,30 @@ public class Mahjong
                 temp = index;
                 if (nextCount > count && !CheckEye(temp, nextCount - count, ref winFlags))
                 {
-                    return CheckEye(temp, nextCount - count + 1, ref result) &&
-                        (currentCount <= count || CheckEye(temp - nextCount, currentCount - count, ref result)) &&
-                        ((previousCount <= count || CheckEye(temp - nextCount - currentCount - offset, previousCount - count, ref result))) &&
-                        (handler == null || handler(true, nextCount - count, temp, result));
+                    winFlags = result;
+                    return CheckEye(temp, nextCount - count + 1, ref winFlags) &&
+                        (currentCount <= count || CheckEye(temp - nextCount, currentCount - count, ref winFlags)) &&
+                        ((previousCount <= count || CheckEye(temp - nextCount - currentCount - offset, previousCount - count, ref winFlags))) &&
+                        (handler == null || handler(true, nextCount - count, temp, winFlags));
                 }
 
                 result = winFlags;
                 temp -= nextCount;
                 if (currentCount > count && !CheckEye(temp, currentCount - count, ref winFlags))
                 {
-                    return CheckEye(temp, currentCount - count + 1, ref result) &&
-                        ((previousCount <= count || CheckEye(temp - currentCount - offset, previousCount - count, ref result))) &&
-                        (handler == null || handler(true, currentCount - count, temp, result));
+                    winFlags = result;
+                    return CheckEye(temp, currentCount - count + 1, ref winFlags) &&
+                        ((previousCount <= count || CheckEye(temp - currentCount - offset, previousCount - count, ref winFlags))) &&
+                        (handler == null || handler(true, currentCount - count, temp, winFlags));
                 }
 
                 result = winFlags;
                 temp -= currentCount + offset;
                 if (previousCount > count && !CheckEye(temp, previousCount - count, ref winFlags))
                 {
-                    return CheckEye(temp, previousCount - count + 1, ref result) &&
-                        (handler == null || handler(true, previousCount - count, temp, result));
+                    winFlags = result;
+                    return CheckEye(temp, previousCount - count + 1, ref winFlags) &&
+                        (handler == null || handler(true, previousCount - count, temp, winFlags));
                 }
                 
                 return false;
@@ -1029,9 +1031,13 @@ public class Mahjong
                     }
 
                     if (result != null && result.Any() && (handler == null || handler(false, 1, index, result)))
+                    {
+                        winFlags = result;
                         return true;
+                    }
                 }
-                
+
+                result = winFlags;
                 if (count > 0 && !Check(index, currentCount + offset, nextCount, count, ref winFlags))
                 {
                     if ((source.number > 1 && previousCount != count && previousCount - count < 2 ? 1 : 0) +
@@ -1040,22 +1046,22 @@ public class Mahjong
                     {
                         ++count;
 
-                        result = winFlags;
-                        if ((nextCount <= count || CheckEye(index, nextCount - count, ref result)) &&
-                            (currentCount <= count || CheckEye(index - nextCount, currentCount - count, ref result)) &&
-                            (previousCount <= count || CheckEye(index - nextCount - currentCount - offset, previousCount - count, ref result)) &&
-                            __Check(index + 1, 0, 0, 0, 1, destination, enumerator.Clone(), ref result))
+                        winFlags = result;
+                        if ((nextCount <= count || CheckEye(index, nextCount - count, ref winFlags)) &&
+                            (currentCount <= count || CheckEye(index - nextCount, currentCount - count, ref winFlags)) &&
+                            (previousCount <= count || CheckEye(index - nextCount - currentCount - offset, previousCount - count, ref winFlags)) &&
+                            __Check(index + 1, 0, 0, 0, 1, destination, enumerator.Clone(), ref winFlags))
                         {
                             temp = index;
-                            if (nextCount < count && source.number < 8 && (handler == null || handler(false, 2, temp, result)))
+                            if (nextCount < count && source.number < 8 && (handler == null || handler(false, 2, temp, winFlags)))
                                 return true;
 
                             temp -= nextCount;
-                            if (currentCount < count && source.number > 0 && (handler == null || handler(false, 1, temp, result)))
+                            if (currentCount < count && source.number > 0 && (handler == null || handler(false, 1, temp, winFlags)))
                                 return true;
 
                             temp -= currentCount + offset;
-                            if (previousCount < count && source.number > 1 && (handler == null || handler(false, 0, temp, result)))
+                            if (previousCount < count && source.number > 1 && (handler == null || handler(false, 0, temp, winFlags)))
                                 return true;
                         }
 
@@ -1069,33 +1075,39 @@ public class Mahjong
                 temp = index;
                 if (nextCount > count && !CheckEye(temp, nextCount - count, ref winFlags))
                 {
-                    return CheckEye(temp, nextCount - count + 1, ref result) &&
-                        (currentCount <= count || CheckEye(temp - nextCount, currentCount - count, ref result)) &&
-                        ((previousCount <= count || CheckEye(temp - nextCount - currentCount - offset, previousCount - count, ref result))) &&
-                        __Check(index + 1, 0, 0, 0, 1, destination, enumerator.Clone(), ref result) &&
-                        (handler == null || handler(true, nextCount - count, temp, result));
+                    winFlags = result;
+                    return CheckEye(temp, nextCount - count + 1, ref winFlags) &&
+                        (currentCount <= count || CheckEye(temp - nextCount, currentCount - count, ref winFlags)) &&
+                        ((previousCount <= count || CheckEye(temp - nextCount - currentCount - offset, previousCount - count, ref winFlags))) &&
+                        __Check(index + 1, 0, 0, 0, 1, destination, enumerator.Clone(), ref winFlags) &&
+                        (handler == null || handler(true, nextCount - count, temp, winFlags));
                 }
 
                 result = winFlags;
                 temp -= nextCount;
                 if (currentCount > count && !CheckEye(temp, currentCount - count, ref winFlags))
                 {
-                    return CheckEye(temp, currentCount - count + 1, ref result) &&
-                        ((previousCount <= count || CheckEye(temp - currentCount - offset, previousCount - count, ref result))) &&
-                        __Check(index + 1, 0, 0, 0, 1, destination, enumerator.Clone(), ref result) &&
-                        (handler == null || handler(true, currentCount - count, temp, result));
+                    winFlags = result;
+                    return CheckEye(temp, currentCount - count + 1, ref winFlags) &&
+                        ((previousCount <= count || CheckEye(temp - currentCount - offset, previousCount - count, ref winFlags))) &&
+                        __Check(index + 1, 0, 0, 0, 1, destination, enumerator.Clone(), ref winFlags) &&
+                        (handler == null || handler(true, currentCount - count, temp, winFlags));
                 }
 
                 result = winFlags;
                 temp -= currentCount + offset;
                 if (previousCount > count && !CheckEye(temp, previousCount - count, ref winFlags))
                 {
-                    return CheckEye(temp, previousCount - count + 1, ref result) &&
-                        __Check(index + 1, 0, 0, 0, 1, destination, enumerator.Clone(), ref result) &&
-                        (handler == null || handler(true, previousCount - count, temp, result));
+                    winFlags = result;
+                    return CheckEye(temp, previousCount - count + 1, ref winFlags) &&
+                        __Check(index + 1, 0, 0, 0, 1, destination, enumerator.Clone(), ref winFlags) &&
+                        (handler == null || handler(true, previousCount - count, temp, winFlags));
                 }
 
-                return __Check(index + 1, 0, 0, 0, 1, destination, handler, enumerator, ref winFlags) || result != null;
+                offset = 0;
+                previousCount = 0;
+                currentCount = 0;
+                nextCount = 1;
             }
             else if (destination.number == source.number)
                 ++nextCount;
@@ -1117,16 +1129,22 @@ public class Mahjong
                         if (CheckEye(temp, previousCount - i + 1, ref instance) &&
                             __Check(index + 1, i, currentCount - i, nextCount - i, 1, destination, enumerator.Clone(), ref instance) &&
                             (handler == null || handler(true, previousCount - i, temp, instance)))
+                        {
+                            winFlags = instance;
+
                             return true;
+                        }
 
                         continue;
                     }
 
                     if (__Check(index + 1, i, currentCount - i, nextCount - i, 1, destination, handler, enumerator.Clone(), ref instance))
-                        return true;
-                }
+                    {
+                        winFlags = instance;
 
-                return false;
+                        return true;
+                    }
+                }
             }
             else
                 return false;

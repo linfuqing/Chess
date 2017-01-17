@@ -47,7 +47,12 @@ public class MahjongServerPlayer : ServerObject
             node.UnregisterHandler(handle);
 
         onComplete(index);
-    } 
+    }
+    
+    public void Show(IEnumerable<KeyValuePair<int, int>> handTileIndices)
+    {
+        RpcShow(handTileIndices);
+    }
 
     public void Draw(byte index, byte code)
     {
@@ -59,9 +64,9 @@ public class MahjongServerPlayer : ServerObject
         RpcThrow(index, group, instance);
     }
 
-    public void Ready(IEnumerable<KeyValuePair<int, int>> handTileIndices)
+    public void Ready(bool isShow)
     {
-        RpcReady(handTileIndices);
+        RpcReady(isShow);
     }
 
     public void Try(Mahjong.RuleType type)
@@ -100,19 +105,10 @@ public class MahjongServerPlayer : ServerObject
         RpcEnd((short)MahjongNetworkRPCHandle.Throw);
     }
 
-    private void RpcReady(IEnumerable<KeyValuePair<int, int>> handTileIndices)
+    private void RpcReady(bool isShow)
     {
         NetworkWriter writer = RpcStart();
-        if(handTileIndices != null)
-        {
-            foreach (KeyValuePair<int, int> pair in handTileIndices)
-            {
-                writer.Write((byte)pair.Key);
-                writer.Write(Mahjong.Tile.Get(pair.Value));
-            }
-        }
-
-        writer.Write((byte)255);
+        writer.Write(isShow);
         RpcEnd((short)MahjongNetworkRPCHandle.Ready);
     }
 
@@ -130,5 +126,21 @@ public class MahjongServerPlayer : ServerObject
         writer.Write((byte)type);
         writer.Write(group);
         RpcEnd((short)MahjongNetworkRPCHandle.Do);
+    }
+    
+    private void RpcShow(IEnumerable<KeyValuePair<int, int>> handTileIndices)
+    {
+        NetworkWriter writer = RpcStart();
+        if (handTileIndices != null)
+        {
+            foreach (KeyValuePair<int, int> pair in handTileIndices)
+            {
+                writer.Write((byte)pair.Key);
+                writer.Write(Mahjong.Tile.Get(pair.Value));
+            }
+        }
+
+        writer.Write((byte)255);
+        RpcEnd((short)MahjongNetworkRPCHandle.Show);
     }
 }

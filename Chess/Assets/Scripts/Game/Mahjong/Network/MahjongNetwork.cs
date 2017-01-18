@@ -6,6 +6,7 @@ public enum MahjongNetworkMessageType
 {
     Player = 300,
     Room,
+    Create, 
     Init, 
     Shuffle, 
     TileCodes,
@@ -30,6 +31,12 @@ public enum MahjongPlayerStatus
 {
     Turn, 
     Show
+}
+
+public enum MahjongRoomType
+{
+    Normal, 
+    Hand258
 }
 
 public enum MahjongScoreType : byte
@@ -110,6 +117,23 @@ public class RegisterMessage : NameMessage
         {
             roomName = null;
         }
+    }
+}
+
+public class MahjongRoomMessage : MessageBase
+{
+    public Mahjong.ShuffleType shuffleType;
+    public MahjongRoomType roomType;
+
+    public MahjongRoomMessage()
+    {
+
+    }
+
+    public MahjongRoomMessage(Mahjong.ShuffleType shuffleType, MahjongRoomType roomType)
+    {
+        this.shuffleType = shuffleType;
+        this.roomType = roomType;
     }
 }
 

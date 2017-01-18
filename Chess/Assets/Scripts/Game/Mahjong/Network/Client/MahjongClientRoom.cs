@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -27,6 +28,7 @@ public class MahjongClientRoom : MonoBehaviour
     public float length;
     public float size;
     public float offset;
+    public float diceTime;
     public float throwTime;
     public float moveTime;
     public float smoothTime;
@@ -50,7 +52,9 @@ public class MahjongClientRoom : MonoBehaviour
     public Button show;
     public new Text name;
     public TextMesh time;
-    public Animator dice;
+    
+    public Dice x;
+    public Dice y;
     public Animator wind;
     public Transform arrow;
 
@@ -67,6 +71,11 @@ public class MahjongClientRoom : MonoBehaviour
 
             return __instances[__index++ % count];
         }
+    }
+
+    public void Play(int point0, int point1, int point2, int point3)
+    {
+        StartCoroutine(__Play(point0, point1, point2, point3));
     }
 
     public void Init(int count, int index)
@@ -316,6 +325,46 @@ public class MahjongClientRoom : MonoBehaviour
         MahjongClientMain main = MahjongClientMain.instance;
         if (main != null)
             main.Shutdown();
+    }
+
+    private IEnumerator __Play(int point0, int point1, int point2, int point3)
+    {
+        GameObject gameObject;
+        if (x != null)
+        {
+            gameObject = x.gameObject;
+            if (gameObject != null)
+                gameObject.SetActive(true);
+
+            x.Play(point0);
+        }
+
+        if(y != null)
+        {
+            gameObject = y.gameObject;
+            if (gameObject != null)
+                gameObject.SetActive(true);
+
+            y.Play(point1);
+        }
+
+        yield return new WaitForSeconds(diceTime);
+
+        if (x != null)
+            x.Play(point2);
+
+        if (y != null)
+            y.Play(point3);
+
+        yield return new WaitForSeconds(diceTime);
+
+        gameObject = x == null ? null : x.gameObject;
+        if (gameObject != null)
+            gameObject.SetActive(false);
+
+        gameObject = y == null ? null : y.gameObject;
+        if (gameObject != null)
+            gameObject.SetActive(false);
     }
 
     void OnEnable()

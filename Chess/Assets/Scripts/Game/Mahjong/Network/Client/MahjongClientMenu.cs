@@ -4,6 +4,38 @@ using UnityEngine.Events;
 public class MahjongClientMenu : MonoBehaviour
 {
     public UnityEvent onError;
+    private Mahjong.ShuffleType __shuffleType;
+    private MahjongRoomType __roomType;
+
+    public bool isWinds
+    {
+        set
+        {
+            if (value)
+                __shuffleType |= Mahjong.ShuffleType.Winds;
+            else
+                __shuffleType &= ~Mahjong.ShuffleType.Winds;
+        }
+    }
+
+    public bool isFlowers
+    {
+        set
+        {
+            if (value)
+                __shuffleType |= Mahjong.ShuffleType.Flowers;
+            else
+                __shuffleType &= ~Mahjong.ShuffleType.Flowers;
+        }
+    }
+
+    public MahjongRoomType roomType
+    {
+        set
+        {
+            __roomType = value;
+        }
+    }
 
     public void Create()
     {
@@ -11,7 +43,7 @@ public class MahjongClientMenu : MonoBehaviour
         if (main != null)
         {
             main.onError += __OnError;
-            main.JoinRoom(string.Empty);
+            main.CreateRoom(__shuffleType, __roomType);
         }
     }
 
@@ -33,5 +65,11 @@ public class MahjongClientMenu : MonoBehaviour
 
         if (onError != null)
             onError.Invoke();
+    }
+
+    void Start()
+    {
+        __shuffleType = Mahjong.ShuffleType.All;
+        __roomType = MahjongRoomType.Normal;
     }
 }

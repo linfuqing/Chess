@@ -60,10 +60,23 @@ public class MahjongClient : Client
             MahjongClientRoom room = MahjongClientRoom.instance;
             if (room != null)
             {
-                if (room.finish.root != null && 
-                    (room.finish.normal.root == null || !room.finish.normal.root.activeSelf) &&
+                if ((room.finish.normal.root == null || !room.finish.normal.root.activeSelf) &&
                     (room.finish.win.root == null || !room.finish.win.root.activeSelf))
-                    room.finish.root.SetActive(true);
+                {
+                    if(room.finish.root != null)
+                        room.finish.root.SetActive(true);
+
+                    if (room.finish.button != null)
+                    {
+                        Button.ButtonClickedEvent onClick = room.finish.button.onClick;
+                        if (onClick == null)
+                            onClick = new Button.ButtonClickedEvent();
+                        else
+                            onClick.RemoveAllListeners();
+
+                        onClick.AddListener(__OnReady);
+                    }
+                }
 
                 if (room.finish.normal.ready != null)
                 {

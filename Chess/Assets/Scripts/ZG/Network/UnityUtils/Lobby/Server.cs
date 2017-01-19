@@ -160,7 +160,7 @@ namespace ZG.Network.Lobby
                 {
                     room = new Room(length, 0);
 
-                    __rooms.Insert(playerIndex, room);
+                    __rooms.Insert(roomIndex, room);
                 }
                 else
                     return false;
@@ -215,7 +215,7 @@ namespace ZG.Network.Lobby
 
             Lobby.Node instance = Get(index) as Lobby.Node;
             int count = instance == null ? 0 : instance._count;
-            while (room.NotReady(index))
+            while (room.NotReady(node.playerIndex))
             {
                 if (instance != null)
                 {

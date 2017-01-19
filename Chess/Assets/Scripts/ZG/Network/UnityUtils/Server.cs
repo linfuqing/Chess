@@ -246,6 +246,28 @@ namespace ZG.Network
             return room.count;
         }
 
+        public int GetConnectionCount(int roomIndex)
+        {
+            if (__nodes == null || __rooms == null)
+                return 0;
+
+            Room room;
+            if (!__rooms.TryGetValue(roomIndex, out room) || room == null)
+                return 0;
+
+            int count = 0;
+            Node node;
+            Network.Node instance;
+            foreach (KeyValuePair<int, Network.Node> pair in room)
+            {
+                instance = pair.Value;
+                if (instance != null && __nodes.TryGetValue(instance.index, out node) && node.connectionId >= 0)
+                    ++count;
+            }
+
+            return count;
+        }
+
         public Network.Node Get(int roomIndex, int playerIndex)
         {
             if (__rooms == null)
@@ -1357,11 +1379,7 @@ namespace ZG.Network
 #endif
             Pool<int> indices;
             if (__nodeIndices == null || !__nodeIndices.TryGetValue(connection.connectionId, out indices) || indices == null)
-            {
-                Debug.LogError("Disconnect Fail.");
-
                 return;
-            }
 
             int[] temp = indices.ToArray();
             foreach (short index in temp)

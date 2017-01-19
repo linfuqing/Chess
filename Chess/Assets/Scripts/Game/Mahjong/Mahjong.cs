@@ -12,7 +12,7 @@ public class Mahjong
     {
         Winds = 0x01, 
         Flowers = 0x02, 
-        All = ~0
+        All = Winds | Flowers
     }
 
     public enum TileType
@@ -1040,7 +1040,7 @@ public class Mahjong
                             continue;
 
                         length = Math.Min(Math.Min(currentCount - i, nextCount - i), 1);
-                        for (j = 0; j < length; ++j)
+                        for (j = 0; j <= length; ++j)
                         {
                             target = instance;
                             if (j > 0 && !Check(index, nextCount, 0, j, ref target))
@@ -2446,7 +2446,7 @@ public class Mahjong
                     if (ruleNode.index < 0 || __winFlags == null || __winFlags.Count < ruleNode.index)
                         return -1;
 
-                    if (__mahjong.__players != null)
+                    if (__mahjong.__players == null)
                         return -1;
 
                     playerIndex = __mahjong.playerIndex + 3 & 3;
@@ -2821,6 +2821,22 @@ public class Mahjong
     private ShuffleType __shuffleType;
     private RuleType __ruleType;
     public Rule rule;
+
+    public int count
+    {
+        get
+        {
+            return __tileIndices == null ? 0 : __tileIndices.Length;
+        }
+    }
+    
+    public int tileCount
+    {
+        get
+        {
+            return __tileCount;
+        }
+    }
     
     public int tileIndex
     {
@@ -2830,13 +2846,6 @@ public class Mahjong
         }
     }
 
-    public int tileCount
-    {
-        get
-        {
-            return __tileCount;
-        }
-    }
 
     public int dealerIndex
     {
@@ -3019,11 +3028,11 @@ public class Mahjong
 
         return;*/
 
-        int poolTileCount = 144, handTileCount = 18, count;
+        int poolTileCount = (int)TileType.Easet << 2, handTileCount = (poolTileCount + 4) >> 3, count;
         if ((type & ShuffleType.Winds) != 0)
         {
             count = TileType.Spring - TileType.Easet;
-            poolTileCount += count;
+            poolTileCount += count << 2;
             handTileCount += count >> 1;
         }
 
@@ -3031,10 +3040,9 @@ public class Mahjong
         {
             count = TileType.Unknown - TileType.Spring;
             poolTileCount += count;
-            handTileCount += count >> 1;
+            handTileCount += count >> 3;
         }
-
-        Random random = new Random();
+        
         int index;
         if (__tileIndices == null || __shuffleType != type)
         {
@@ -3043,10 +3051,11 @@ public class Mahjong
 
             int i;
             index = 0;
-            for (i = 0; i < (int)TileType.Easet; ++i)
+            count = (int)TileType.Easet << 2;
+            for (i = 0; i < count; ++i)
                 __tileIndices[i] = index++;
 
-            count = TileType.Spring - TileType.Easet;
+            count = (TileType.Spring - TileType.Easet) << 2;
             if ((type & ShuffleType.Winds) == 0)
                 index += count;
             else
@@ -3067,6 +3076,7 @@ public class Mahjong
             __shuffleType = type;
         }
 
+        Random random = new Random();
         count = poolTileCount - 1;
         int temp;
         for (int i = 0; i < count; ++i)

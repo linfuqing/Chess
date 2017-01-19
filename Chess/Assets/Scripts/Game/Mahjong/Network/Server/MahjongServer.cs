@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using UnityEngine;
 using UnityEngine.Networking;
+using UnityEngine.Networking.NetworkSystem;
 using ZG;
 using ZG.Network.Lobby;
 
@@ -256,7 +257,7 @@ public class MahjongServer : Server
                     return false;
                 
                 Node node;
-                if (!host.GetNode(__instance.node.index, out node))
+                if (!host.GetNode(__instance.node.index, out node) || node.connectionId < 0)
                     return false;
                 
                 if (__readyHandleIndices == null)
@@ -283,7 +284,7 @@ public class MahjongServer : Server
                     return false;
                 
                 Node node;
-                if (!host.GetNode(__instance.node.index, out node))
+                if (!host.GetNode(__instance.node.index, out node) || node.connectionId < 0)
                     return false;
                 
                 ReadOnlyCollection<Mahjong.RuleNode> ruleNodes = Start();
@@ -393,8 +394,8 @@ public class MahjongServer : Server
                     if (host != null)
                     {
                         Node node;
-                        if (host.GetNode(__instance.node.index, out node))
-                            host.SendShuffleMessage(node.connectionId, (short)__room.dealerIndex, (byte)__room.point0, (byte)__room.point1, (byte)__room.point2, (byte)__room.point3);
+                        if (host.GetNode(__instance.node.index, out node) && node.connectionId >= 0)
+                            host.SendShuffleMessage(node.connectionId, (byte)__room.point0, (byte)__room.point1, (byte)__room.point2, (byte)__room.point3, (byte)__room.tileCount);
                     }
                 }
 
@@ -417,7 +418,7 @@ public class MahjongServer : Server
                     if (host != null)
                     {
                         Node node;
-                        if (host.GetNode(__instance.node.index, out node))
+                        if (host.GetNode(__instance.node.index, out node) && node.connectionId >= 0)
                             host.SendTileCodeMessage(node.connectionId, (byte)__tileCodes.Length, __tileCodes);
                     }
                 }
@@ -515,7 +516,8 @@ public class MahjongServer : Server
                 {
                     byte flag = 0;
                     Mahjong mahjong = base.mahjong;
-                    if (mahjong != null && mahjong.playerIndex == index)
+                    bool isTurn = mahjong != null && mahjong.playerIndex == index;
+                    if (isTurn)
                         flag |= 1 << (int)MahjongPlayerStatus.Turn;
 
                     if (__isShow)
@@ -562,7 +564,7 @@ public class MahjongServer : Server
                     int count = __tileCodes == null ? 0 : base.count,
                         length = count > 0 ? __tileCodes.Length : 0,
                         handleTileIndex = base.handleTileIndex;
-                    bool isHand = Contains(handleTileIndex);
+                    bool isHand = isTurn && Contains(handleTileIndex);
                     byte code;
                     writer.Write((byte)(count - (isHand ? 1 : 0)));
                     if (count > 0)
@@ -571,7 +573,7 @@ public class MahjongServer : Server
                         foreach (KeyValuePair<int, int> pair in (IEnumerable<KeyValuePair<int, int>>)this)
                         {
                             index = (byte)pair.Key;
-                            if (index == handleTileIndex)
+                            if (isTurn && index == handleTileIndex)
                                 continue;
 
                             writer.Write(index);
@@ -635,7 +637,7 @@ public class MahjongServer : Server
         {
             get
             {
-                return __mahjong == null ? 0 : __mahjong.tileCount;
+                return __mahjong == null ? 0 : __mahjong.count;
             }
         }
 
@@ -725,7 +727,7 @@ public class MahjongServer : Server
                 }
             }
 
-            yield return new WaitForSeconds(5.0f);
+            yield return new WaitForSeconds(6.0f);
 
             int i, index, ruleNodeIndex;
             Mahjong.RuleType ruleType;
@@ -778,16 +780,15 @@ public class MahjongServer : Server
                                 ruleType = __mahjong.ruleType;
                                 if (ruleType != Mahjong.RuleType.Unknown && index == __mahjong.rulePlayerIndex)
                                 {
-                                    ruleNodeIndex = __mahjong.ruleNodeIndex;
+                                    if (ruleType == Mahjong.RuleType.SelfDraw || ruleType == Mahjong.RuleType.OverKong)
+                                        __Break();
+
+                                        ruleNodeIndex = __mahjong.ruleNodeIndex;
                                     if (!player.End(ruleNodeIndex))
                                         continue;
 
-                                    if (ruleType == Mahjong.RuleType.SelfDraw || ruleType == Mahjong.RuleType.OverKong)
-                                    {
-                                        __Break();
-                                        
+                                    if (!__isRunning)
                                         break;
-                                    }
                                 }
                             }
 
@@ -910,9 +911,16 @@ public class MahjongServer : Server
         return roomIndex;
     }
 
-    public void SendShuffleMessage(int connectionId, short dealerIndex, byte point0, byte point1, byte point2, byte point3)
+    public void SendErrorMessage(int connectionId, MahjongErrorType type)
     {
-        Send(connectionId, (short)MahjongNetworkMessageType.Shuffle, new MahjongShuffleMessage(point0, point1, point2, point2, dealerIndex));
+        ErrorMessage errorMessage = new ErrorMessage();
+        errorMessage.errorCode = (int)type;
+        Send(connectionId, (short)MahjongNetworkMessageType.Error, errorMessage);
+    }
+
+    public void SendShuffleMessage(int connectionId, byte point0, byte point1, byte point2, byte point3, byte tileCount)
+    {
+        Send(connectionId, (short)MahjongNetworkMessageType.Shuffle, new MahjongShuffleMessage(point0, point1, point2, point2, tileCount));
     }
 
     public void SendTileCodeMessage(int connectionId, byte count, IEnumerable<byte> codes)
@@ -1021,16 +1029,30 @@ public class MahjongServer : Server
                             if (__roomMap.TryGetValue(player.roomName, out room) && room != null)
                             {
                                 if (room.isRunning)
+                                {
+                                    if(GetConnectionCount(room.index) < 2)
+                                        room.Break();
+                                    else if (reader != null)
+                                    {
+                                        switch ((MahjongQuitType)reader.ReadByte())
+                                        {
+                                            case MahjongQuitType.DestroyRoom:
+                                                room.Break();
+                                                break;
+                                            default:
+                                                return false;
+                                        }
+                                    }
+                                    
                                     return false;
+                                }
 
                                 Room.Player temp = room.Get(player.index);
                                 if (temp != null)
                                     temp.index = -1;
 
-                                if (GetCount(room.index) < 1)
+                                if (GetCount(room.index) < 2)
                                 {
-                                    room.Break();
-
                                     if (__roomNames != null)
                                         __roomNames.RemoveAt(room.index);
 
@@ -1121,7 +1143,7 @@ public class MahjongServer : Server
             {
                 Room room;
                 if (__roomMap.TryGetValue(roomName, out room) && room != null && room.isRunning)
-                    SendShuffleMessage(connectionId, (short)room.dealerIndex, (byte)room.point0, (byte)room.point1, (byte)room.point2, (byte)room.point3);
+                    SendShuffleMessage(connectionId, (byte)room.point0, (byte)room.point1, (byte)room.point2, (byte)room.point3, ((byte)room.tileCount));
             }
         }
         else
@@ -1140,13 +1162,16 @@ public class MahjongServer : Server
         if (nameMessage == null)
             return;
 
-        string name;
-        if (__roomMap == null || !__roomMap.ContainsKey(nameMessage.name))
-            name = string.Empty;
+        Room room;
+        if (__roomMap == null || !__roomMap.TryGetValue(nameMessage.name, out room) || room == null)
+            SendErrorMessage(connection.connectionId, MahjongErrorType.RoomNone);
         else
-            name = nameMessage.name;
-
-        Send(connection.connectionId, (short)MahjongNetworkMessageType.Room, new NameMessage(name));
+        {
+            if(GetCount(room.index) < 4)
+                Send(connection.connectionId, (short)MahjongNetworkMessageType.Room, new NameMessage(nameMessage.name));
+            else
+                SendErrorMessage(connection.connectionId, MahjongErrorType.RoomFull);
+        }
     }
 
     private void __OnCreate(NetworkMessage message)
@@ -1158,8 +1183,8 @@ public class MahjongServer : Server
         MahjongRoomMessage roomMessage = message.ReadMessage<MahjongRoomMessage>();
         string name = nextRoomIndex.ToString("D6");
         if (CreateRoom(name, roomMessage.shuffleType, roomMessage.roomType) == -1)
-            name = string.Empty;
-
-        Send(connection.connectionId, (short)MahjongNetworkMessageType.Room, new NameMessage(name));
+            SendErrorMessage(connection.connectionId, MahjongErrorType.RoomCreatedFail);
+        else
+            Send(connection.connectionId, (short)MahjongNetworkMessageType.Room, new NameMessage(name));
     }
 }

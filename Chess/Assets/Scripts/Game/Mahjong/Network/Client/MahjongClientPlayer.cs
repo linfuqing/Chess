@@ -247,15 +247,13 @@ public class MahjongClientPlayer : Node
                 __groups = new Dictionary<byte, Group>();
 
             Group temp;
-            if (__groups.TryGetValue(group, out temp))
-            {
-                if (temp.count < (temp.tiles == null ? 0 : temp.tiles.Length))
-                    temp.tiles[temp.count] = instance;
-                else
-                    temp.tile = instance;
-            }
-            else
+            if (!__groups.TryGetValue(group, out temp))
                 temp = new Group(__groups.Count, 0);
+
+            if (temp.count < (temp.tiles == null ? 0 : temp.tiles.Length))
+                temp.tiles[temp.count] = instance;
+            else
+                temp.tile = instance;
 
             room.Group(tile.asset, temp.index, temp.count);
 
@@ -1160,6 +1158,10 @@ public class MahjongClientPlayer : Node
         Transform transform = asset == null ? null : asset.transform;
         if (transform == null)
             return;
+
+        GameObject gameObject = room.arrow == null ? null : room.arrow.gameObject;
+        if (gameObject != null)
+            gameObject.SetActive(false);
 
         byte count = (byte)((__handles == null ? 0 : __handles.Count) + (__caches == null ? 0 : __caches.Count));
         transform.SetParent(this.transform, false);

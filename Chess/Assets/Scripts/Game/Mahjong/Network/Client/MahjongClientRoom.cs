@@ -16,9 +16,11 @@ public class MahjongClientRoom : MonoBehaviour
     [Serializable]
     public struct Finish
     {
-        public GameObject root;
         public Panel normal;
         public Panel win;
+        
+        public GameObject root;
+        public Button button;
     }
 
     public static MahjongClientRoom instance;
@@ -78,23 +80,31 @@ public class MahjongClientRoom : MonoBehaviour
         StartCoroutine(__Play(point0, point1, point2, point3));
     }
 
-    public void Init(int count, int index)
+    public void Init(int tileCount, int index)
     {
         if (this.asset != null)
         {
-            if (__instances == null)
-                __instances = new MahjongAsset[count << 3];
-
+            int length = __instances == null ? 0 : __instances.Length, i;
             MahjongAsset asset;
+            for (i = tileCount; i < length; ++i)
+            {
+                asset = __instances[i];
+                if (asset != null)
+                    Destroy(asset.gameObject);
+            }
+            
+            Array.Resize(ref __instances, tileCount);
+
+            int count = tileCount >> 3, step = tileCount >> 2, j;
+            float offset = width * (((step + 1) >> 1) * 0.5f - 0.5f), temp;
             Transform transform;
-            float offset = width * (count * 0.5f - 0.5f), temp;
-            int i, j;
+            
             for (i = 0; i < count; ++i)
             {
                 temp = i * width - offset;
 
                 //Right
-                j = (count << 1) * 0 + (i << 1);
+                j = step * 0 + (i << 1);
 
                 asset = __instances[j];
                 if (asset == null)
@@ -113,7 +123,7 @@ public class MahjongClientRoom : MonoBehaviour
                 {
                     transform.SetParent(null, false);
                     transform.eulerAngles = new Vector3(-90.0f, 90.0f, 0.0f);
-                    transform.position = new Vector3(size, length * 2.0f, -temp);
+                    transform.position = new Vector3(size, this.length * 2.0f, -temp);
                 }
                 
                 asset = __instances[++j];
@@ -133,11 +143,11 @@ public class MahjongClientRoom : MonoBehaviour
                 {
                     transform.SetParent(null, false);
                     transform.eulerAngles = new Vector3(-90.0f, 90.0f, 0.0f);
-                    transform.position = new Vector3(size, length, -temp);
+                    transform.position = new Vector3(size, this.length, -temp);
                 }
 
                 //Down
-                j = (count << 1) * 1 + (i << 1);
+                j = step * 1 + (i << 1);
 
                 asset = __instances[j];
                 if (asset == null)
@@ -156,7 +166,7 @@ public class MahjongClientRoom : MonoBehaviour
                 {
                     transform.SetParent(null, false);
                     transform.eulerAngles = new Vector3(-90.0f, 180.0f, 0.0f);
-                    transform.position = new Vector3(-temp, length * 2.0f, -size);
+                    transform.position = new Vector3(-temp, this.length * 2.0f, -size);
                 }
                 
                 asset = __instances[++j];
@@ -176,11 +186,11 @@ public class MahjongClientRoom : MonoBehaviour
                 {
                     transform.SetParent(null, false);
                     transform.eulerAngles = new Vector3(-90.0f, 180.0f, 0.0f);
-                    transform.position = new Vector3(-temp, length, -size);
+                    transform.position = new Vector3(-temp, this.length, -size);
                 }
 
                 //Left
-                j = (count << 1) * 2 + (i << 1);
+                j = step * 2 + (i << 1);
 
                 asset = __instances[j];
                 if (asset == null)
@@ -199,7 +209,7 @@ public class MahjongClientRoom : MonoBehaviour
                 {
                     transform.SetParent(null, false);
                     transform.eulerAngles = new Vector3(-90.0f, -90.0f, 0.0f);
-                    transform.position = new Vector3(-size, length * 2.0f, temp);
+                    transform.position = new Vector3(-size, this.length * 2.0f, temp);
                 }
 
                 asset = __instances[++j];
@@ -219,11 +229,11 @@ public class MahjongClientRoom : MonoBehaviour
                 {
                     transform.SetParent(null, false);
                     transform.eulerAngles = new Vector3(-90.0f, -90.0f, 0.0f);
-                    transform.position = new Vector3(-size, length, temp);
+                    transform.position = new Vector3(-size, this.length, temp);
                 }
 
                 //Up
-                j = (count << 1) * 3 + (i << 1);
+                j = step * 3 + (i << 1);
 
                 asset = __instances[j];
                 if (asset == null)
@@ -242,7 +252,7 @@ public class MahjongClientRoom : MonoBehaviour
                 {
                     transform.SetParent(null, false);
                     transform.eulerAngles = new Vector3(-90.0f, 0.0f, 0.0f);
-                    transform.position = new Vector3(temp, length * 2.0f, size);
+                    transform.position = new Vector3(temp, this.length * 2.0f, size);
                 }
 
                 asset = __instances[++j];
@@ -262,7 +272,101 @@ public class MahjongClientRoom : MonoBehaviour
                 {
                     transform.SetParent(null, false);
                     transform.eulerAngles = new Vector3(-90.0f, 0.0f, 0.0f);
-                    transform.position = new Vector3(temp, length, size);
+                    transform.position = new Vector3(temp, this.length, size);
+                }
+            }
+
+            if(tileCount > (count << 3))
+            {
+                temp = count * width - offset;
+
+                //Right
+                j = step * 1  - 1;
+
+                asset = __instances[j];
+                if (asset == null)
+                {
+                    asset = Instantiate(this.asset);
+                    __instances[j] = asset;
+                }
+                else
+                {
+                    asset.onDiscard = null;
+                    asset.onSelected = null;
+                }
+
+                transform = asset == null ? null : asset.transform;
+                if (transform != null)
+                {
+                    transform.SetParent(null, false);
+                    transform.eulerAngles = new Vector3(-90.0f, 90.0f, 0.0f);
+                    transform.position = new Vector3(size, this.length, -temp);
+                }
+
+                //Down
+                j = step * 2 - 1;
+                asset = __instances[j];
+                if (asset == null)
+                {
+                    asset = Instantiate(this.asset);
+                    __instances[j] = asset;
+                }
+                else
+                {
+                    asset.onDiscard = null;
+                    asset.onSelected = null;
+                }
+
+                transform = asset == null ? null : asset.transform;
+                if (transform != null)
+                {
+                    transform.SetParent(null, false);
+                    transform.eulerAngles = new Vector3(-90.0f, 180.0f, 0.0f);
+                    transform.position = new Vector3(-temp, this.length, -size);
+                }
+
+                //Left
+                j = step * 3 - 1;
+                asset = __instances[j];
+                if (asset == null)
+                {
+                    asset = Instantiate(this.asset);
+                    __instances[j] = asset;
+                }
+                else
+                {
+                    asset.onDiscard = null;
+                    asset.onSelected = null;
+                }
+
+                transform = asset == null ? null : asset.transform;
+                if (transform != null)
+                {
+                    transform.SetParent(null, false);
+                    transform.eulerAngles = new Vector3(-90.0f, -90.0f, 0.0f);
+                    transform.position = new Vector3(-size, this.length, temp);
+                }
+
+                //Up
+                j = step * 4 - 1;
+                asset = __instances[j];
+                if (asset == null)
+                {
+                    asset = Instantiate(this.asset);
+                    __instances[j] = asset;
+                }
+                else
+                {
+                    asset.onDiscard = null;
+                    asset.onSelected = null;
+                }
+
+                transform = asset == null ? null : asset.transform;
+                if (transform != null)
+                {
+                    transform.SetParent(null, false);
+                    transform.eulerAngles = new Vector3(-90.0f, 0.0f, 0.0f);
+                    transform.position = new Vector3(temp, this.length, size);
                 }
             }
         }

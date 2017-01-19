@@ -4,7 +4,8 @@ using UnityEngine.Networking;
 
 public enum MahjongNetworkMessageType
 {
-    Player = 300,
+    Error = 300, 
+    Player, 
     Room,
     Create, 
     Init, 
@@ -25,6 +26,13 @@ public enum MahjongNetworkRPCHandle
     Do, 
     Show, 
     Score
+}
+
+public enum MahjongErrorType
+{
+    RoomNone,
+    RoomFull, 
+    RoomCreatedFail
 }
 
 public enum MahjongPlayerStatus
@@ -63,6 +71,11 @@ public enum MahjongReadyType : byte
     None, 
     Hide, 
     Show
+}
+
+public enum MahjongQuitType : byte
+{
+    DestroyRoom
 }
 
 public class NameMessage : MessageBase
@@ -143,15 +156,15 @@ public class MahjongShuffleMessage : MessageBase
     public byte point1;
     public byte point2;
     public byte point3;
-    public short dealerIndex;
+    public byte tileCount;
 
-    public MahjongShuffleMessage(byte point0, byte point1, byte point2, byte point3, short dealerIndex)
+    public MahjongShuffleMessage(byte point0, byte point1, byte point2, byte point3, byte tileCount)
     {
         this.point0 = point0;
         this.point1 = point1;
         this.point2 = point2;
         this.point3 = point3;
-        this.dealerIndex = dealerIndex;
+        this.tileCount = tileCount;
     }
 
     public MahjongShuffleMessage()

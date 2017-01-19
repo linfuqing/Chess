@@ -1,9 +1,13 @@
 ﻿using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.Serialization;
 
 public class MahjongClientMenu : MonoBehaviour
 {
-    public UnityEvent onError;
+    [FormerlySerializedAs("onError")]
+    public UnityEvent onRoomNoneError;
+    public UnityEvent onRoomFullError;
+    public UnityEvent onRoomCreateFailError;
     private Mahjong.ShuffleType __shuffleType;
     private MahjongRoomType __roomType;
 
@@ -29,11 +33,11 @@ public class MahjongClientMenu : MonoBehaviour
         }
     }
 
-    public MahjongRoomType roomType
+    public int roomType
     {
         set
         {
-            __roomType = value;
+            __roomType = (MahjongRoomType)value;
         }
     }
 
@@ -42,7 +46,7 @@ public class MahjongClientMenu : MonoBehaviour
         MahjongClientMain main = MahjongClientMain.instance;
         if (main != null)
         {
-            main.onError += __OnError;
+            main.onError = __OnError;
             main.CreateRoom(__shuffleType, __roomType);
         }
     }
@@ -52,19 +56,28 @@ public class MahjongClientMenu : MonoBehaviour
         MahjongClientMain main = MahjongClientMain.instance;
         if (main != null)
         {
-            main.onError += __OnError;
+            main.onError = __OnError;
             main.JoinRoom(roomName);
         }
     }
 
-    private void __OnError()
+    private void __OnError(MahjongErrorType type)
     {
-        MahjongClientMain main = MahjongClientMain.instance;
-        if (main != null)
-            main.onError -= __OnError;
-
-        if (onError != null)
-            onError.Invoke();
+        switch(type)
+        {
+            case MahjongErrorType.RoomNone:
+                if (onRoomNoneError != null)
+                    onRoomNoneError.Invoke();
+                break;
+            case MahjongErrorType.RoomFull:
+                if (onRoomFullError != null)
+                    onRoomFullError.Invoke();
+                break;
+            case MahjongErrorType.RoomCreatedFail:
+                if (onRoomCreateFailError != null)
+                    onRoomCreateFailError.Invoke();
+                break;
+        }
     }
 
     void Start()

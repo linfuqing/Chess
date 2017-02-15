@@ -60,6 +60,18 @@ namespace ZG.Network.Lobby
             __count = count;
         }
 
+        public int Get(int index)
+        {
+            if (__players == null)
+                return 0;
+
+            int result;
+            if (__players.TryGetValue(index, out result))
+                return result;
+
+            return 0;
+        }
+
         public bool Ready(int index)
         {
             int count = __players == null ? 0 : __players.count;

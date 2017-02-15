@@ -388,14 +388,20 @@ public class MahjongServer : Server
             {
                 __isShow = false;
 
-                if (__room != null && __room.isRunning)
+                if (__room != null)
                 {
-                    MahjongServer host = __instance == null ? null : __instance.host as MahjongServer;
-                    if (host != null)
+                    if (__room.__mahjong != null)
+                        __instance.type = (short)((this.index + 4 - __room.__mahjong.dealerIndex) & 3);
+
+                    if (__room.isRunning)
                     {
-                        Node node;
-                        if (host.GetNode(__instance.node.index, out node) && node.connectionId >= 0)
-                            host.SendShuffleMessage(node.connectionId, (byte)__room.point0, (byte)__room.point1, (byte)__room.point2, (byte)__room.point3, (byte)__room.tileCount);
+                        MahjongServer host = __instance == null ? null : __instance.host as MahjongServer;
+                        if (host != null)
+                        {
+                            Node node;
+                            if (host.GetNode(__instance.node.index, out node) && node.connectionId >= 0)
+                                host.SendShuffleMessage(node.connectionId, (byte)__room.point0, (byte)__room.point1, (byte)__room.point2, (byte)__room.point3, (byte)__room.tileCount);
+                        }
                     }
                 }
 
@@ -412,9 +418,12 @@ public class MahjongServer : Server
             
             private void __Reset()
             {
+                if (__instance == null)
+                    return;
+
                 if (__tileCodes != null)
                 {
-                    MahjongServer host = __instance == null ? null : __instance.host as MahjongServer;
+                    MahjongServer host = __instance.host as MahjongServer;
                     if (host != null)
                     {
                         Node node;
@@ -999,7 +1008,7 @@ public class MahjongServer : Server
             __playerNames.Insert(nextNodeIndex, message.name);
         }
 
-        type = (short)(player.index >= 0 && player.index < 4 ? player.index : 4);
+        type = (short)(player.index >= 0 && player.index < 4 ? (player.index + 4 - room.dealerIndex) & 3 : 4);
 
         roomIndex = room.index;
 

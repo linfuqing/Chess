@@ -849,7 +849,7 @@ namespace ZG.Network
                 if (temp is Network.Node &&
                     temp._index != index && 
                     (predicate == null || predicate(temp)) && 
-                    __nodes.TryGetValue(index, out node) &&
+                    __nodes.TryGetValue(temp._index, out node) &&
                     node.connectionId >= 0)
                     NetworkServer.SendToClient(node.connectionId, (short)HostMessageType.Rpc, message);
             }
@@ -890,7 +890,7 @@ namespace ZG.Network
                 temp = pair.Value;
                 if (temp is Network.Node &&
                     temp._index != index &&
-                    __nodes.TryGetValue(index, out node) &&
+                    __nodes.TryGetValue(temp._index, out node) &&
                     node.connectionId >= 0 && 
                     (predicate == null || predicate(temp)))
                     NetworkServer.SendToClient(node.connectionId, (short)HostMessageType.Rpc, hostMessage);

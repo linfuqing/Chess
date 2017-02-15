@@ -963,14 +963,14 @@ public class Mahjong
                         temp -= currentCount + offset;
                         if (previousCount < count)
                         {
-                            if (source.number > 1 && handler == null || handler(false, 0, temp, result))
+                            if (source.number > 1 && (handler == null || handler(false, 0, temp, result)))
                             {
                                 winFlags = result;
 
                                 return true;
                             }
 
-                            if (source.number < 8 && handler == null || handler(false, 2, temp, result))
+                            if (source.number < 8 && (handler == null || handler(false, 2, temp, result)))
                             {
                                 winFlags = result;
 
@@ -1099,14 +1099,14 @@ public class Mahjong
                         temp -= currentCount + offset;
                         if (previousCount < count)
                         {
-                            if (source.number > 1 && handler == null || handler(false, 0, temp, result))
+                            if (source.number > 1 && (handler == null || handler(false, 0, temp, result)))
                             {
                                 winFlags = result;
 
                                 return true;
                             }
 
-                            if (source.number < 8 && handler == null || handler(false, 2, temp, result))
+                            if (source.number < 8 && (handler == null || handler(false, 2, temp, result)))
                             {
                                 winFlags = result;
 

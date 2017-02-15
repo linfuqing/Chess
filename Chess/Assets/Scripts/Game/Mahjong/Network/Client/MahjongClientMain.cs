@@ -98,7 +98,7 @@ public class MahjongClientMain : MonoBehaviour
     private void __OnRegistered(Node node)
     {
         ZG.Network.Lobby.Node temp = node as ZG.Network.Lobby.Node;
-        if (temp != null && temp.isLocalPlayer)
+        if (temp != null && temp.isLocalPlayer && temp.count < 1)
             temp.Ready();
     }
     

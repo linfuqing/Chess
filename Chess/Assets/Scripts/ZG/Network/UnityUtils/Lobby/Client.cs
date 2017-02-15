@@ -46,7 +46,7 @@ namespace ZG.Network.Lobby
         public new void Create()
         {
             onDisconnect += __OnDisconnect;
-            onUnregistered += __OnUnregistered;
+            //onUnregistered += __OnUnregistered;
             onRegistered += __OnRegistered;
 
             base.Create();
@@ -60,18 +60,17 @@ namespace ZG.Network.Lobby
             __Clear();
         }
 
-        private void __OnUnregistered(Network.Node node)
+        /*private void __OnUnregistered(Network.Node node)
         {
             if (node == null || __players == null)
                 return;
-
-
+            
             int index = node.index;
             Player player;
             if (!__players.TryGetValue(index, out player))
                 return;
 
-            __players.Remove(index);
+            //__players.Remove(index);
 
             if (__rooms == null)
                 return;
@@ -91,7 +90,7 @@ namespace ZG.Network.Lobby
                         temp._onNotReady();
                 }
             }
-        }
+        }*/
 
         private void __OnRegistered(Network.Node node)
         {
@@ -100,6 +99,17 @@ namespace ZG.Network.Lobby
 
             int index = node.index;
             Node temp = node as Node;
+            if (temp != null && __players != null && __rooms != null)
+            {
+                Player player;
+                if (__players.TryGetValue(index, out player))
+                {
+                    Room room;
+                    if (__rooms.TryGetValue(player.roomIndex, out room) && room != null)
+                        temp._count = room.Get(index);
+                }
+            }
+
             node.RegisterHandler((short)HostMessageHandle.Ready, delegate (NetworkReader reader)
             {
                 if(__players != null && __rooms != null)
@@ -211,7 +221,7 @@ namespace ZG.Network.Lobby
         private void __Clear()
         {
             onDisconnect -= __OnDisconnect;
-            onUnregistered -= __OnUnregistered;
+            //onUnregistered -= __OnUnregistered;
             onRegistered -= __OnRegistered;
 
             if (__players != null)

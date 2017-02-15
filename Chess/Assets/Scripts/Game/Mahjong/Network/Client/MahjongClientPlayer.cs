@@ -309,7 +309,28 @@ public class MahjongClientPlayer : Node
             }
         }
     }
-    
+
+    private void __OnDestroy()
+    {
+        if (isLocalPlayer)
+        {
+            Camera camera = Camera.main;
+            if (camera != null)
+                camera.transform.SetParent(null, false);
+
+            MahjongClientRoom room = MahjongClientRoom.instance;
+            if (room != null)
+            {
+                Transform transform = room.time == null ? null : room.time.transform;
+                if (transform != null)
+                {
+                    Vector3 eulerAngles = transform.eulerAngles;
+                    transform.eulerAngles = new Vector3(eulerAngles.x, eulerAngles.y + (type + 1) * 90.0f, eulerAngles.z);
+                }
+            }
+        }
+    }
+
     private void __OnHold(NetworkReader reader)
     {
         if (reader == null)
@@ -1375,6 +1396,7 @@ public class MahjongClientPlayer : Node
         RegisterHandler((short)MahjongNetworkRPCHandle.Score, __OnScore);
 
         onCreate += __OnCreate;
+        onDestroy += __OnDestroy;
     }
 
     void Update()

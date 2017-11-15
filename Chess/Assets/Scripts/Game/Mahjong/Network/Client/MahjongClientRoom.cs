@@ -6,11 +6,30 @@ using UnityEngine.UI;
 public class MahjongClientRoom : MonoBehaviour
 {
     [Serializable]
+    public struct Player
+    {
+        public GameObject root;
+        public RawImage image;
+    }
+
+    [Serializable]
     public struct Panel
     {
         public GameObject root;
         public Button ready;
         public MahjongFinishPlayerStyle[] players;
+
+        public void Clear()
+        {
+            if(players != null)
+            {
+                foreach(MahjongFinishPlayerStyle player in players)
+                {
+                    if (player != null)
+                        player.Clear();
+                }
+            }
+        }
     }
 
     [Serializable]
@@ -21,6 +40,12 @@ public class MahjongClientRoom : MonoBehaviour
         
         public GameObject root;
         public Button button;
+
+        public void Clear()
+        {
+            normal.Clear();
+            win.Clear();
+        }
     }
 
     public static MahjongClientRoom instance;
@@ -43,6 +68,8 @@ public class MahjongClientRoom : MonoBehaviour
     public MahjongAsset asset;
     public Texture[] textures;
 
+    public Player[] players;
+
     public Finish finish;
 
     public Button pass;
@@ -57,7 +84,7 @@ public class MahjongClientRoom : MonoBehaviour
     
     public Dice x;
     public Dice y;
-    public Animator wind;
+    public AsynchronousTrigger wind;
     public Transform arrow;
 
     private MahjongAsset[] __instances;
@@ -370,6 +397,8 @@ public class MahjongClientRoom : MonoBehaviour
                 }
             }
         }
+
+        finish.Clear();
 
         GameObject gameObject = arrow == null ? null : arrow.gameObject;
         if (gameObject != null)

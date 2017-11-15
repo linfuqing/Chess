@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Networking;
+using UnityEngine.Assertions;
 using ZG.Network.Lobby;
 
 public class MahjongClientPlayer : Node
@@ -79,7 +80,7 @@ public class MahjongClientPlayer : Node
     }
 
     private bool __isShow;
-    private int __drawCount;
+    private int __handleCount;
     private int __discardCount;
     private int __scoreCount;
     private int __groupCount;
@@ -97,7 +98,7 @@ public class MahjongClientPlayer : Node
     public void Clear()
     {
         __isShow = false;
-        __drawCount = 0;
+        __handleCount = 0;
         __discardCount = 0;
         __scoreCount = 0;
         __groupCount = 0;
@@ -276,28 +277,16 @@ public class MahjongClientPlayer : Node
         };
     }
 
-    private void __Reset()
-    {
-        MahjongClientRoom room = MahjongClientRoom.instance;
-        if (room != null)
-        {
-            if (room.wind != null)
-                room.wind.SetTrigger("Reset");
-
-            if (room.time != null)
-                room.time.text = string.Empty;
-        }
-    }
-    
     private void __OnCreate()
     {
-        if(isLocalPlayer)
+        MahjongClientRoom room = MahjongClientRoom.instance;
+
+        if (isLocalPlayer)
         {
             Camera camera = Camera.main;
             if (camera != null)
                 camera.transform.SetParent(transform, false);
 
-            MahjongClientRoom room = MahjongClientRoom.instance;
             if(room != null)
             {
                 Transform transform = room.time == null ? null : room.time.transform;
@@ -308,17 +297,30 @@ public class MahjongClientPlayer : Node
                 }
             }
         }
+
+        Client host = base.host as Client;
+        ZG.Network.Node node = host == null ? null : host.localPlayer;
+        if (node != null)
+        {
+            int index = (type + 4 - node.type) & 3;
+            if(index >= 0 && index < (room == null || room.players == null ? 0 : room.players.Length))
+            {
+                MahjongClientRoom.Player player = room.players[index];
+                if (player.root != null)
+                    player.root.SetActive(true);
+            }
+        }
     }
 
     private void __OnDestroy()
     {
+        MahjongClientRoom room = MahjongClientRoom.instance;
         if (isLocalPlayer)
         {
             Camera camera = Camera.main;
             if (camera != null)
                 camera.transform.SetParent(null, false);
 
-            MahjongClientRoom room = MahjongClientRoom.instance;
             if (room != null)
             {
                 Transform transform = room.time == null ? null : room.time.transform;
@@ -327,6 +329,19 @@ public class MahjongClientPlayer : Node
                     Vector3 eulerAngles = transform.eulerAngles;
                     transform.eulerAngles = new Vector3(eulerAngles.x, eulerAngles.y + (type + 1) * 90.0f, eulerAngles.z);
                 }
+            }
+        }
+
+        Client host = base.host as Client;
+        ZG.Network.Node node = host == null ? null : host.localPlayer;
+        if (node != null)
+        {
+            int index = (type + 4 - node.type) & 3;
+            if (index >= 0 && index < (room == null || room.players == null ? 0 : room.players.Length))
+            {
+                MahjongClientRoom.Player player = room.players[index];
+                if (player.root != null)
+                    player.root.SetActive(false);
             }
         }
     }
@@ -1110,7 +1125,7 @@ public class MahjongClientPlayer : Node
                 __Discard(instance);
             }
 
-            ++__drawCount;
+            ++__handleCount;
         }
             
         i = 0;
@@ -1165,15 +1180,19 @@ public class MahjongClientPlayer : Node
     {
         MahjongClientRoom room = MahjongClientRoom.instance;
         if (room != null && room.wind != null)
-            room.wind.SetTrigger(type.ToString());
+        {
+            string name = type.ToString();
+            room.wind.Play(name);
+            room.wind.Stop(name, time);
+        }
 
         __holdTime = time + Time.time;
-
-        Invoke("__Reset", time);
     }
 
     private void RpcDraw(byte index, byte code)
     {
+        ++__handleCount;
+
         MahjongClientRoom room = MahjongClientRoom.instance;
         MahjongAsset asset = room == null ? null : room.next;
         Transform transform = asset == null ? null : asset.transform;
@@ -1203,21 +1222,22 @@ public class MahjongClientPlayer : Node
         if (__caches == null)
             __caches = new LinkedList<Cache>();
 
-        if (count < (13 - __groupCount))
-            __caches.AddLast(result);
-        else
+        if (__handleCount > (13 - __groupCount))
         {
+            Assert.IsNull(__handle);
             __handle = new LinkedListNode<Cache>(result);
 
             if(isLocalPlayer)
                 __Discard(result.tile);
         }
-        
-        ++__drawCount;
+        else
+            __caches.AddLast(result);
     }
 
     private void RpcThrow(byte index, byte group, Mahjong.Tile instance)
     {
+        --__handleCount;
+
         __holdTime = 0.0f;
 
         if (__handle != null && __handle.Value.tile.index == index)

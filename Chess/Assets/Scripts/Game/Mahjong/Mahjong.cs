@@ -82,11 +82,11 @@ public class Mahjong
 
         public static Tile Get(int index)
         {
-            byte code = (byte)index, count = (byte)TileType.Plum << 2;
+            byte code = (byte)index, count = (byte)TileType.Spring << 2;
             if (code < count)
                 code >>= 2;
             else
-                code -= count;
+                code = (byte)(code + (int)TileType.Spring - count);
 
             return code;
         }
@@ -2184,7 +2184,7 @@ public class Mahjong
                     if (__handIndices == null || __mahjong.__players == null)
                         return -1;
 
-                    playerIndex = __mahjong.playerIndex + 3 & 3;
+                    playerIndex = (__mahjong.playerIndex + 3) & 3;
                     if (playerIndex < 0 || __mahjong.__players.Length <= playerIndex)
                         return -1;
 
@@ -2371,7 +2371,7 @@ public class Mahjong
                     if (__handIndices == null || __mahjong.__players == null)
                         return -1;
 
-                    playerIndex = __mahjong.playerIndex + 3 & 3;
+                    playerIndex = (__mahjong.playerIndex + 3) & 3;
                     if (playerIndex < 0 || __mahjong.__players.Length <= playerIndex)
                         return -1;
                     
@@ -2449,7 +2449,7 @@ public class Mahjong
                     if (__mahjong.__players == null)
                         return -1;
 
-                    playerIndex = __mahjong.playerIndex + 3 & 3;
+                    playerIndex = (__mahjong.playerIndex + 3) & 3;
                     if (playerIndex < 0 || __mahjong.__players.Length <= playerIndex)
                         return -1;
 
@@ -2464,8 +2464,8 @@ public class Mahjong
                     instance = new LinkedListNode<int>(tileIndex);
                     __Add(instance);
                     temp = Score(RuleType.Win, playerIndex, tileIndex, __winFlags[ruleNode.index]);
-                    /*if (__handTileIndices != null)
-                        __handTileIndices.Remove(instance);*/
+                    if (__handTileIndices != null)
+                        __handTileIndices.Remove(instance);
 
                     __drawType = DrawType.Normal;
                     __score += temp;
@@ -2482,8 +2482,8 @@ public class Mahjong
                         {
                             player.__Add(instance);
                             temp = player.Score(RuleType.Win, playerIndex, tileIndex, winFlags);
-                            /*if (player.__handTileIndices != null)
-                                player.__handTileIndices.Remove(instance);*/
+                            if (player.__handTileIndices != null)
+                                player.__handTileIndices.Remove(instance);
 
                             player.__drawType = DrawType.Normal;
                             player.__score += temp;
@@ -2543,6 +2543,9 @@ public class Mahjong
                     instance = new LinkedListNode<int>(player.GetHandTileIndex(player.__handleTileIndex));
                     __Add(instance);
                     temp = Score(RuleType.BreakKong, playerIndex, instance.Value, __winFlags[ruleNode.index]);
+                    if (__handTileIndices != null)
+                        __handTileIndices.Remove(instance);
+
                     __score += temp;
                     
                     player.__score -= temp;

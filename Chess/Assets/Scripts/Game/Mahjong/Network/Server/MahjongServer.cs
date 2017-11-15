@@ -155,7 +155,10 @@ public class MahjongServer : Server
 
                 int score = 0, kongCount = base.kongCount;
                 score += __Write(MahjongScoreType.Flower, flowerCount + groupCount - kongCount, writer, host.scores);
-                score += __Write(MahjongScoreType.Kong, kongCount, writer, host.scores);
+
+                if(kongCount > 0)
+                    score += __Write(MahjongScoreType.Kong, kongCount, writer, host.scores);
+
                 switch (type)
                 {
                     case Mahjong.RuleType.Win:
@@ -390,10 +393,7 @@ public class MahjongServer : Server
 
                 if (__room != null)
                 {
-                    if (__room.__mahjong != null)
-                        __instance.type = (short)((this.index + 4 - __room.__mahjong.dealerIndex) & 3);
-
-                    if (__room.isRunning)
+                    /*if (__room.isRunning)
                     {
                         MahjongServer host = __instance == null ? null : __instance.host as MahjongServer;
                         if (host != null)
@@ -402,7 +402,10 @@ public class MahjongServer : Server
                             if (host.GetNode(__instance.node.index, out node) && node.connectionId >= 0)
                                 host.SendShuffleMessage(node.connectionId, (byte)__room.point0, (byte)__room.point1, (byte)__room.point2, (byte)__room.point3, (byte)__room.tileCount);
                         }
-                    }
+                    }*/
+                    
+                    if (__room.__mahjong != null)
+                        __instance.type = (short)((this.index + 4 - __room.__mahjong.dealerIndex) & 3);
                 }
 
                 int count = (int)Mahjong.TileType.Unknown, step = (256 - count) / count;
@@ -728,7 +731,19 @@ public class MahjongServer : Server
             IEnumerable<Mahjong.Player> players = __mahjong.players;
             if(players != null)
             {
-                foreach(Mahjong.Player instance in players)
+                MahjongServerPlayer target;
+                MahjongServer host;
+                Node node;
+                foreach (Mahjong.Player instance in players)
+                {
+                    player = instance as Player;
+                    target = player == null ? null : player.instance;
+                    host = target == null ? null : target.host as MahjongServer;
+                    if (host != null && host.GetNode(target.node.index, out node) && node.connectionId >= 0)
+                        host.SendShuffleMessage(node.connectionId, (byte)__point0, (byte)__point1, (byte)__point2, (byte)__point3, (byte)tileCount);
+                }
+
+                foreach (Mahjong.Player instance in players)
                 {
                     player = instance as Player;
                     if (player != null)
